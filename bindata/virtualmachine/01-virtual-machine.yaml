@@ -64,6 +64,8 @@ spec:
       - cloudInitNoCloud:
           secretRef:
             name: {{ .UserDataSecret }}
+          networkDataSecretRef:
+            name: {{ .NetworkDataSecret }}
         name: cloudinitdisk
       networks:
       - name: default

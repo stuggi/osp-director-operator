@@ -21,14 +21,46 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// GetInitVolumeMounts -
+func GetInitVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "id-rsa",
+			MountPath: "/mnt/id-rsa",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "cloud-admin-ssh",
+			MountPath: "/mnt/cloud-admin-ssh",
+			ReadOnly:  false,
+		},
+	}
+
+}
+
 // GetVolumeMounts -
 func GetVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
-			Name:      "id-rsa",
-			MountPath: "/root/.ssh",
-			ReadOnly:  true,
+			Name:      "cloud-admin-ssh",
+			MountPath: "/home/cloud-admin/.ssh",
+			ReadOnly:  false,
 		},
+		{
+			Name:      "tripleo-deploy-config",
+			MountPath: "/config",
+			ReadOnly:  false,
+		},
+		{
+			Name:      "tripleo-deploy-sh",
+			MountPath: "/scripts",
+			ReadOnly:  false,
+		},
+		//{
+		//	Name:      "tripleo-deploy",
+		//	MountPath: "/root/tripleo-deploy",
+		//	ReadOnly:  false,
+		//},
 	}
 
 }
@@ -36,6 +68,8 @@ func GetVolumeMounts() []corev1.VolumeMount {
 // GetVolumes -
 func GetVolumes(instance *ospdirectorv1beta1.OpenStackClient) []corev1.Volume {
 	var config0600AccessMode int32 = 0600
+	var config0644AccessMode int32 = 0644
+	var config0755AccessMode int32 = 0755
 
 	return []corev1.Volume{
 		{
@@ -49,6 +83,34 @@ func GetVolumes(instance *ospdirectorv1beta1.OpenStackClient) []corev1.Volume {
 							Key:  "identity",
 							Path: "id_rsa",
 						},
+					},
+				},
+			},
+		},
+		{
+			Name: "cloud-admin-ssh",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
+			},
+		},
+		{
+			Name: "tripleo-deploy-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &config0644AccessMode,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "tripleo-deploy-config",
+					},
+				},
+			},
+		},
+		{
+			Name: "tripleo-deploy-sh",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &config0755AccessMode,
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "tripleo-deploy-sh",
 					},
 				},
 			},

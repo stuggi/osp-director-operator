@@ -126,6 +126,7 @@ func (r *OpenStackClientReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *OpenStackClientReconciler) podCreateOrUpdate(instance *ospdirectorv1beta1.OpenStackClient, envVars map[string]common.EnvSetter) (controllerutil.OperationResult, error) {
 	var terminationGracePeriodSeconds int64 = 0
+	runAsUser := int64(0)
 
 	// TODO: the overcloud deploy end with create of clouds.yaml
 	//       add clouds.yaml into a secret and mount to this pod
@@ -135,11 +136,30 @@ func (r *OpenStackClientReconciler) podCreateOrUpdate(instance *ospdirectorv1bet
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
+			// TODO: remove hard coded IP
+			Annotations: map[string]string{"k8s.v1.cni.cncf.io/networks": `[{"name": "osp-static", "namespace": "openstack", "ips": ["192.168.25.6/24"]}]`},
 		},
 	}
 	pod.Spec = corev1.PodSpec{
 		TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 		Volumes:                       openstackclient.GetVolumes(instance),
+		InitContainers: []corev1.Container{
+			{
+				Name:            "init",
+				Image:           instance.Spec.ImageURL,
+				ImagePullPolicy: corev1.PullAlways,
+				SecurityContext: &corev1.SecurityContext{
+					RunAsUser: &runAsUser,
+				},
+				Command: []string{
+					"/bin/bash",
+					"-c",
+					"cp /mnt/id-rsa/id_rsa /mnt/cloud-admin-ssh && chown -R cloud-admin:cloud-admin /mnt/cloud-admin-ssh",
+				},
+				Env:          common.MergeEnvs([]corev1.EnvVar{}, envVars),
+				VolumeMounts: openstackclient.GetInitVolumeMounts(),
+			},
+		},
 		Containers: []corev1.Container{
 			{
 				Name:            "openstackclient",
@@ -178,6 +198,7 @@ func (r *OpenStackClientReconciler) podCreateOrUpdate(instance *ospdirectorv1bet
 		// Delete pod when an unsupported change was requested, like
 		// e.g. additional controller VM got up. We just re-create the
 		// openstackclient pod
+		r.Log.Info(fmt.Sprintf("openstackclient pod deleted due to spec change %v", err))
 		if err := r.Client.Delete(context.TODO(), pod); err != nil {
 			return op, err
 		}
