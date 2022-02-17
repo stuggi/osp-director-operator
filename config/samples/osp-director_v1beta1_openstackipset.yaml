@@ -1,0 +1,11 @@
+apiVersion: osp-director.openstack.org/v1beta1
+kind: OpenStackIPSet
+metadata:
+  name: openstackipset-sample
+spec:
+  hostCount: 1
+  vip: true
+  serviceVIP: true
+  roleName: Redis
+  networks:
+  - internal_api

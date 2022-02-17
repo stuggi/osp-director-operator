@@ -142,6 +142,17 @@ func (r *OpenStackControlPlane) Default() {
 
 		r.Spec.OpenStackRelease = string(ospVersion)
 	}
+
+	//
+	// set default for AdditionalServiceVIPs if non provided in ctlplane spec
+	// https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/deployment/network_v2.html#service-virtual-ips
+	//
+	if r.Spec.OpenStackRelease == string(TemplateVersion17_0) && r.Spec.AdditionalServiceVIPs == nil {
+		r.Spec.AdditionalServiceVIPs = map[string]string{
+			"Redis":  "internal_api",
+			"OVNDBs": "internal_api",
+		}
+	}
 }
 
 // GetOSPVersionFromImageURL -

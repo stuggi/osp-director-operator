@@ -69,6 +69,7 @@ type roleNodeType struct {
 	IPaddr                  map[string]*roleIPType
 	Hostname                string
 	VIP                     bool
+	ServiceVIP              bool
 	OVNStaticBridgeMappings map[string]string
 }
 
@@ -447,6 +448,7 @@ func createRolesMap(
 							IPaddr:                  map[string]*roleIPType{},
 							Hostname:                reservation.Hostname,
 							VIP:                     reservation.VIP,
+							ServiceVIP:              reservation.ServiceVIP,
 							OVNStaticBridgeMappings: ovnStaticBridgeMappings,
 						}
 					}
