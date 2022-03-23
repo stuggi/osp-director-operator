@@ -74,6 +74,30 @@ func (r *OpenStackBaremetalSet) ValidateDelete() error {
 	return checkBackupOperationBlocksAction(r.Namespace, APIActionDelete)
 }
 
+//+kubebuilder:webhook:path=/mutate-osp-director-openstack-org-v1beta1-openstackbaremetalset,mutating=true,failurePolicy=fail,sideEffects=None,groups=osp-director.openstack.org,resources=openstackbaremetalsets,verbs=create;update,versions=v1beta1,name=mopenstackbaremetalset.kb.io,admissionReviewVersions={v1,v1beta1}
+
+// Default implements webhook.Defaulter so a webhook will be registered for the type
+func (r *OpenStackBaremetalSet) Default() {
+	baremetalsetlog.Info("default", "name", r.Name)
+
+	//
+	// set OpenStackNetConfig reference label if not already there
+	// Note, any rename of the osnetcfg won't be reflected
+	//
+	if _, ok := r.GetLabels()[OpenStackNetConfigReconcileLabel]; !ok {
+		labels, err := AddOSNetConfigRefLabel(
+			r.Namespace,
+			r.Spec.Networks[0],
+			r.GetLabels(),
+		)
+		if err != nil {
+			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
+		}
+		r.SetLabels(labels)
+	}
+
+}
+
 func (r *OpenStackBaremetalSet) validateCr() error {
 	if err := r.checkBaseImageReqs(); err != nil {
 		return err
@@ -87,7 +111,7 @@ func (r *OpenStackBaremetalSet) validateCr() error {
 }
 func (r *OpenStackBaremetalSet) checkBaseImageReqs() error {
 	if r.Spec.BaseImageURL == "" && r.Spec.ProvisionServerName == "" {
-		return fmt.Errorf("Either \"baseImageUrl\" or \"provisionServerName\" must be provided")
+		return fmt.Errorf("either \"baseImageUrl\" or \"provisionServerName\" must be provided")
 	}
 
 	return nil
