@@ -138,13 +138,22 @@ func (r *OpenStackIPSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	var ctrlResult ctrl.Result
 	currentLabels := instance.DeepCopy().Labels
+
 	//
+	// Only kept for running local
 	// add osnetcfg CR label reference which is used in the in the osnetcfg
 	// controller to watch this resource and reconcile
 	//
-	instance.Labels, ctrlResult, err = openstacknetconfig.AddOSNetConfigRefLabel(ctx, r, instance, cond, instance.Spec.Networks[0])
-	if (err != nil) || (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, err
+	if _, ok := currentLabels[ospdirectorv1beta1.OpenStackNetConfigReconcileLabel]; !ok {
+		common.LogForObject(r, "osnetcfg reference label not added by webhook, adding it!", instance)
+		instance.Labels, err = ospdirectorv1beta1.AddOSNetConfigRefLabel(
+			instance.Namespace,
+			instance.Spec.Networks[0],
+			currentLabels,
+		)
+		if err != nil {
+			return ctrlResult, err
+		}
 	}
 
 	//

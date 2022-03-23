@@ -1,21 +1,17 @@
 package openstacknetconfig
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	ospdirectorv1beta1 "github.com/openstack-k8s-operators/osp-director-operator/api/v1beta1"
 	common "github.com/openstack-k8s-operators/osp-director-operator/pkg/common"
-	openstacknet "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstacknet"
 	v1 "k8s.io/api/apps/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+/*
 //
 // AddOSNetConfigRefLabel - add osnetcfg CR label reference which is used in
 // the in the osnetcfg controller to watch this resource and reconcile
@@ -88,6 +84,7 @@ func AddOSNetConfigRefLabel(
 
 	return labels, ctrl.Result{}, nil
 }
+*/
 
 //
 // WaitOnIPsCreated - Wait for IPs created on all configured networks

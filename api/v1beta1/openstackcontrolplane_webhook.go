@@ -131,7 +131,7 @@ func (r *OpenStackControlPlane) ValidateDelete() error {
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *OpenStackControlPlane) Default() {
-	openstackephemeralheatlog.Info("default", "name", r.Name)
+	controlplanelog.Info("default", "name", r.Name)
 	//
 	// set OpenStackRelease if non provided
 	//
@@ -150,4 +150,27 @@ func (r *OpenStackControlPlane) Default() {
 			"OVNDBs": "internal_api",
 		}
 	}
+
+	//
+	// set OpenStackNetConfig reference label if not already there
+	// Note, any rename of the osnetcfg won't be reflected
+	//
+	if _, ok := r.GetLabels()[OpenStackNetConfigReconcileLabel]; !ok {
+		var subnetName string
+		for _, vmRole := range r.Spec.VirtualMachineRoles {
+			subnetName = vmRole.Networks[0]
+			break
+		}
+
+		labels, err := AddOSNetConfigRefLabel(
+			r.Namespace,
+			subnetName,
+			r.GetLabels(),
+		)
+		if err != nil {
+			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
+		}
+		r.SetLabels(labels)
+	}
+
 }

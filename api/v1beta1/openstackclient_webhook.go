@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -52,5 +54,21 @@ func (r *OpenStackClient) Default() {
 
 	if r.Spec.ImageURL == "" {
 		r.Spec.ImageURL = openstackClientDefaults.ImageURL
+	}
+
+	//
+	// set OpenStackNetConfig reference label if not already there
+	// Note, any rename of the osnetcfg won't be reflected
+	//
+	if _, ok := r.GetLabels()[OpenStackNetConfigReconcileLabel]; !ok {
+		labels, err := AddOSNetConfigRefLabel(
+			r.Namespace,
+			r.Spec.Networks[0],
+			r.GetLabels(),
+		)
+		if err != nil {
+			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
+		}
+		r.SetLabels(labels)
 	}
 }
