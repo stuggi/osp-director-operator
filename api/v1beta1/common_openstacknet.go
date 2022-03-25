@@ -225,6 +225,7 @@ func CreateVIPNetworkList(
 			if _, value := networkList[netNameLower]; !value && network.Spec.VIP {
 				networkList[netNameLower] = true
 				uniqNetworksList = append(uniqNetworksList, netNameLower)
+				controlplanelog.Info(fmt.Sprintf("%s %s GNAAA vip label added for %s", instance.GetObjectKind().GroupVersionKind().Kind, instance.Name, netNameLower))
 			}
 		}
 	}

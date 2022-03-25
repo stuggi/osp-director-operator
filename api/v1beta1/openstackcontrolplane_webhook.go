@@ -164,7 +164,10 @@ func (r *OpenStackControlPlane) Default() {
 	if r.Spec.OpenStackRelease == "" {
 		r.Spec.OpenStackRelease = openstackControlPlaneDefaults.OpenStackRelease
 		r.Status.OSPVersion = OSPVersion(openstackControlPlaneDefaults.OpenStackRelease)
+	} else {
+		r.Status.OSPVersion = OSPVersion(r.Spec.OpenStackRelease)
 	}
+	controlplanelog.Info(fmt.Sprintf("%s %s using OSP release %s", r.GetObjectKind().GroupVersionKind().Kind, r.Name, r.Status.OSPVersion))
 
 	//
 	// set default for AdditionalServiceVIPs if non provided in ctlplane spec
@@ -175,6 +178,8 @@ func (r *OpenStackControlPlane) Default() {
 			"Redis":  "internal_api",
 			"OVNDBs": "internal_api",
 		}
+
+		controlplanelog.Info(fmt.Sprintf("%s %s AdditionalServiceVIPs set %v", r.GetObjectKind().GroupVersionKind().Kind, r.Name, r.Spec.AdditionalServiceVIPs))
 	}
 
 	//
@@ -197,6 +202,7 @@ func (r *OpenStackControlPlane) Default() {
 			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
 		}
 		r.SetLabels(labels)
+		controlplanelog.Info(fmt.Sprintf("%s %s labels set to %v", r.GetObjectKind().GroupVersionKind().Kind, r.Name, r.GetLabels()))
 	}
 
 	//
@@ -206,12 +212,15 @@ func (r *OpenStackControlPlane) Default() {
 	if err != nil {
 		controlplanelog.Error(err, fmt.Sprintf("error creating VIP network list: %s", err))
 	}
+	controlplanelog.Info(fmt.Sprintf("%s %s GNAAA vipNetList %v", r.GetObjectKind().GroupVersionKind().Kind, r.Name, vipNetList))
+
 	labels := AddOSNetNameLowerLabels(openstackclientlog, r.GetLabels(), vipNetList)
 	if !equality.Semantic.DeepEqual(
 		labels,
 		r.GetLabels(),
 	) {
 		r.SetLabels(labels)
+		controlplanelog.Info(fmt.Sprintf("%s %s labels set to %v", r.GetObjectKind().GroupVersionKind().Kind, r.Name, r.GetLabels()))
 	}
 
 }
