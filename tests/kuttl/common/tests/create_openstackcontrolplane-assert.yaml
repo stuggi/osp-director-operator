@@ -12,12 +12,18 @@
 apiVersion: osp-director.openstack.org/v1beta1
 kind: OpenStackControlPlane
 metadata:
+  labels:
+    ooo-subnetname/ctlplane: "true"
+    ooo-subnetname/external: "true"
+    ooo-subnetname/internal_api: "true"
+    ooo-subnetname/storage: "true"
+    ooo-subnetname/storage_mgmt: "true"
+    osnetconfig-reconcile-dep: openstacknetconfig
   name: overcloud
   namespace: openstack
 spec:
   domainName: ostest.test.metalkube.org
   enableFencing: false
-  gitSecret: git-secret
   openStackClientImageURL: registry.redhat.io/rhosp-rhel8/openstack-tripleoclient:16.2
   openStackClientNetworks:
   - ctlplane
@@ -70,6 +76,14 @@ kind: OpenStackVMSet
 metadata:
   finalizers:
   - openstackvmsets.osp-director.openstack.org/virtualmachine
+  labels:
+    ooo-subnetname/ctlplane: "true"
+    ooo-subnetname/external: "true"
+    ooo-subnetname/internal_api: "true"
+    ooo-subnetname/storage: "true"
+    ooo-subnetname/storage_mgmt: "true"
+    ooo-subnetname/tenant: "true"
+    osnetconfig-reconcile-dep: openstacknetconfig
   name: controller
   namespace: openstack
 spec:
@@ -101,13 +115,17 @@ status:
 apiVersion: osp-director.openstack.org/v1beta1
 kind: OpenStackClient
 metadata:
+  labels:
+    ooo-subnetname/ctlplane: "true"
+    ooo-subnetname/external: "true"
+    ooo-subnetname/internal_api: "true"
+    osnetconfig-reconcile-dep: openstacknetconfig
   name: openstackclient
   namespace: openstack
 spec:
   cloudName: overcloud
   deploymentSSHSecret: osp-controlplane-ssh-keys
   domainName: ostest.test.metalkube.org
-  gitSecret: git-secret
   imageURL: registry.redhat.io/rhosp-rhel8/openstack-tripleoclient:16.2
   networks:
   - ctlplane

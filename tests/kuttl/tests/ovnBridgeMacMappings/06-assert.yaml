@@ -138,7 +138,6 @@ metadata:
 spec:
   domainName: ostest.test.metalkube.org
   enableFencing: false
-  gitSecret: git-secret
   openStackClientImageURL: registry.redhat.io/rhosp-rhel8/openstack-tripleoclient:16.2
   openStackClientNetworks:
   - ctlplane
@@ -244,7 +243,6 @@ spec:
   cloudName: overcloud
   deploymentSSHSecret: osp-controlplane-ssh-keys
   domainName: ostest.test.metalkube.org
-  gitSecret: git-secret
   imageURL: registry.redhat.io/rhosp-rhel8/openstack-tripleoclient:16.2
   networks:
   - ctlplane
