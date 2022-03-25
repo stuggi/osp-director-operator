@@ -24,6 +24,7 @@ package v1beta1
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,12 +57,26 @@ func (r *OpenStackBaremetalSet) ValidateCreate() error {
 		return err
 	}
 
+	//
+	// validate that for all configured subnets an osnet exists
+	//
+	if err := validateNetworks(r.GetNamespace(), r.Spec.Networks); err != nil {
+		return err
+	}
+
 	return r.validateCr()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *OpenStackBaremetalSet) ValidateUpdate(old runtime.Object) error {
 	baremetalsetlog.Info("validate update", "name", r.Name)
+
+	//
+	// validate that for all configured subnets an osnet exists
+	//
+	if err := validateNetworks(r.GetNamespace(), r.Spec.Networks); err != nil {
+		return err
+	}
 
 	return r.validateCr()
 
@@ -93,6 +108,17 @@ func (r *OpenStackBaremetalSet) Default() {
 		if err != nil {
 			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
 		}
+		r.SetLabels(labels)
+	}
+
+	//
+	// add labels of all networks used by this CR
+	//
+	labels := AddOSNetNameLowerLabels(openstackclientlog, r.GetLabels(), r.Spec.Networks)
+	if !equality.Semantic.DeepEqual(
+		labels,
+		r.GetLabels(),
+	) {
 		r.SetLabels(labels)
 	}
 

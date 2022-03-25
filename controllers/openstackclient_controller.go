@@ -34,7 +34,6 @@ import (
 	common "github.com/openstack-k8s-operators/osp-director-operator/pkg/common"
 	openstackclient "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstackclient"
 	openstackipset "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstackipset"
-	openstacknet "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstacknet"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -166,7 +165,7 @@ func (r *OpenStackClientReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	//
 	// add labels of all networks used by this CR
 	//
-	instance.Labels = openstacknet.AddOSNetNameLowerLabels(r, instance, cond, instance.Spec.Networks)
+	instance.Labels = ospdirectorv1beta1.AddOSNetNameLowerLabels(r.GetLogger(), instance.Labels, instance.Spec.Networks)
 
 	//
 	// update instance to sync labels if changed

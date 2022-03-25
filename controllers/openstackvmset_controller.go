@@ -252,7 +252,7 @@ func (r *OpenStackVMSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	//
 	// add labels of all networks used by this CR
 	//
-	instance.Labels = openstacknet.AddOSNetNameLowerLabels(r, instance, cond, instance.Spec.Networks)
+	instance.Labels = ospdirectorv1beta1.AddOSNetNameLowerLabels(r.GetLogger(), instance.Labels, instance.Spec.Networks)
 
 	//
 	// update instance to sync labels if changed

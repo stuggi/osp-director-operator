@@ -47,7 +47,6 @@ import (
 	"github.com/openstack-k8s-operators/osp-director-operator/pkg/baremetalset"
 	common "github.com/openstack-k8s-operators/osp-director-operator/pkg/common"
 	openstackipset "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstackipset"
-	openstacknet "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstacknet"
 	"github.com/openstack-k8s-operators/osp-director-operator/pkg/provisionserver"
 )
 
@@ -254,7 +253,7 @@ func (r *OpenStackBaremetalSetReconciler) Reconcile(ctx context.Context, req ctr
 	//
 	// add labels of all networks used by this CR
 	//
-	instance.Labels = openstacknet.AddOSNetNameLowerLabels(r, instance, cond, instance.Spec.Networks)
+	instance.Labels = ospdirectorv1beta1.AddOSNetNameLowerLabels(r.GetLogger(), instance.Labels, instance.Spec.Networks)
 
 	//
 	// update instance to sync labels if changed

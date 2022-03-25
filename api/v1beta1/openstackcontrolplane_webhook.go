@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -96,6 +97,18 @@ func (r *OpenStackControlPlane) ValidateCreate() error {
 		return err
 	}
 
+	//
+	// validate that for all configured subnets an osnet exists
+	//
+	for _, vmspec := range r.Spec.VirtualMachineRoles {
+		//
+		// validate that for all configured subnets an osnet exists
+		//
+		if err := validateNetworks(r.GetNamespace(), vmspec.Networks); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -117,6 +130,19 @@ func (r *OpenStackControlPlane) ValidateUpdate(old runtime.Object) error {
 	if r.Spec.DomainName != oldControlPlane.Spec.DomainName {
 		return fmt.Errorf("domainName cannot be modified")
 	}
+
+	//
+	// validate that for all configured subnets an osnet exists
+	//
+	for _, vmspec := range r.Spec.VirtualMachineRoles {
+		//
+		// validate that for all configured subnets an osnet exists
+		//
+		if err := validateNetworks(r.GetNamespace(), vmspec.Networks); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -170,6 +196,21 @@ func (r *OpenStackControlPlane) Default() {
 		if err != nil {
 			controlplanelog.Error(err, fmt.Sprintf("error adding OpenStackNetConfig reference label on %s - %s: %s", r.Kind, r.Name, err))
 		}
+		r.SetLabels(labels)
+	}
+
+	//
+	// add labels of all networks used by this CR
+	//
+	vipNetList, err := CreateVIPNetworkList(r)
+	if err != nil {
+		controlplanelog.Error(err, fmt.Sprintf("error creating VIP network list: %s", err))
+	}
+	labels := AddOSNetNameLowerLabels(openstackclientlog, r.GetLabels(), vipNetList)
+	if !equality.Semantic.DeepEqual(
+		labels,
+		r.GetLabels(),
+	) {
 		r.SetLabels(labels)
 	}
 

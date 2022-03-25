@@ -39,7 +39,6 @@ import (
 	controlplane "github.com/openstack-k8s-operators/osp-director-operator/pkg/controlplane"
 	openstackclient "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstackclient"
 	openstackipset "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstackipset"
-	openstacknet "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstacknet"
 	vmset "github.com/openstack-k8s-operators/osp-director-operator/pkg/vmset"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -409,53 +408,6 @@ func (r *OpenStackControlPlaneReconciler) getNormalizedStatus(status *ospdirecto
 	}
 
 	return s
-}
-
-func (r *OpenStackControlPlaneReconciler) createVIPNetworkList(
-	ctx context.Context,
-	instance *ospdirectorv1beta1.OpenStackControlPlane,
-	cond *ospdirectorv1beta1.Condition,
-) ([]string, error) {
-
-	// create uniq list networls of all VirtualMachineRoles
-	networkList := make(map[string]bool)
-	uniqNetworksList := []string{}
-
-	for _, vmRole := range instance.Spec.VirtualMachineRoles {
-		for _, netNameLower := range vmRole.Networks {
-			// get network with name_lower label
-			labelSelector := map[string]string{
-				ospdirectorv1beta1.SubNetNameLabelSelector: netNameLower,
-			}
-
-			// get network with name_lower label to verify if VIP needs to be requested from Spec
-			network, err := ospdirectorv1beta1.GetOpenStackNetWithLabel(
-				instance.Namespace,
-				labelSelector,
-			)
-			if err != nil {
-				if k8s_errors.IsNotFound(err) {
-					cond.Message = fmt.Sprintf("OpenStackNet with NameLower %s not found!", netNameLower)
-					cond.Reason = ospdirectorv1beta1.ConditionReason(ospdirectorv1beta1.CommonCondReasonOSNetNotFound)
-				} else {
-					// Error reading the object - requeue the request.
-					cond.Message = fmt.Sprintf("Error getting OSNet with labelSelector %v", labelSelector)
-					cond.Reason = ospdirectorv1beta1.ConditionReason(ospdirectorv1beta1.CommonCondReasonOSNetError)
-				}
-				cond.Type = ospdirectorv1beta1.ConditionType(ospdirectorv1beta1.CommonCondTypeError)
-				err = common.WrapErrorForObject(cond.Message, instance, err)
-
-				return uniqNetworksList, err
-			}
-
-			if _, value := networkList[netNameLower]; !value && network.Spec.VIP {
-				networkList[netNameLower] = true
-				uniqNetworksList = append(uniqNetworksList, netNameLower)
-			}
-		}
-	}
-
-	return uniqNetworksList, nil
 }
 
 //
@@ -837,7 +789,7 @@ func (r *OpenStackControlPlaneReconciler) ensureVIPs(
 	//
 
 	// create list of networks where Spec.VIP == True
-	vipNetworksList, err := r.createVIPNetworkList(ctx, instance, cond)
+	vipNetworksList, err := ospdirectorv1beta1.CreateVIPNetworkList(instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -865,10 +817,7 @@ func (r *OpenStackControlPlaneReconciler) ensureVIPs(
 	//
 	// add labels of all networks used by this CR
 	//
-	instance.Labels = openstacknet.AddOSNetNameLowerLabels(r, instance, cond, vipNetworksList)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	instance.Labels = ospdirectorv1beta1.AddOSNetNameLowerLabels(r.GetLogger(), instance.Labels, vipNetworksList)
 
 	//
 	// update instance to sync labels if changed
