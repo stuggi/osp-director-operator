@@ -9,7 +9,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-git/v5 v5.3.0
-	github.com/go-logr/logr v0.4.0
+	github.com/go-logr/logr v1.2.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/uuid v1.2.0
 	github.com/gophercloud/gophercloud v0.12.0
@@ -24,14 +24,13 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/tidwall/gjson v1.9.3
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/tools v0.1.10 // indirect
-	k8s.io/api v0.22.1
-	k8s.io/apimachinery v0.22.1
+	k8s.io/api v0.23.1
+	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
-	kubevirt.io/client-go v0.34.2
-	kubevirt.io/containerized-data-importer v1.40.0
+	kubevirt.io/api v0.51.0
+	kubevirt.io/containerized-data-importer-api v1.42.0
 	sigs.k8s.io/controller-runtime v0.10.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -100,5 +99,4 @@ replace (
 
 	// pinned because no tag supports 1.18 yet
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.1-0.20191108220359-b1b620dd3f06
-
 )
