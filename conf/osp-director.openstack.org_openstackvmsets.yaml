@@ -66,6 +66,51 @@ spec:
           spec:
             description: OpenStackVMSetSpec defines the desired state of an OpenStackVMSet
             properties:
+              additionalDisks:
+                description: AdditionalDisks additional disks to add to the VMI
+                items:
+                  description: OpenStackVMSetAdditionalDisk defines additional disk
+                    properties
+                  properties:
+                    diskSize:
+                      description: Disc size in GB
+                      format: int32
+                      type: integer
+                    name:
+                      description: Name of the additional disk, e.g. used to do the
+                        PVC request
+                      type: string
+                    storageAccessMode:
+                      default: ReadWriteMany
+                      description: StorageAccessMode - Virtual machines must have
+                        a persistent volume claim (PVC) with a shared ReadWriteMany
+                        (RWX) access mode to be live migrated.
+                      enum:
+                      - ReadWriteOnce
+                      - ReadWriteMany
+                      type: string
+                    storageClass:
+                      description: StorageClass to be used for the disk
+                      type: string
+                    storageVolumeMode:
+                      default: Filesystem
+                      description: 'StorageVolumeMode - When using OpenShift Virtualization
+                        with OpenShift Container Platform Container Storage, specify
+                        RBD block mode persistent volume claims (PVCs) when creating
+                        virtual machine disks. With virtual machine disks, RBD block
+                        mode volumes are more efficient and provide better performance
+                        than Ceph FS or RBD filesystem-mode PVCs. To specify RBD block
+                        mode PVCs, use the ''ocs-storagecluster-ceph-rbd'' storage
+                        class and VolumeMode: Block.'
+                      enum:
+                      - Block
+                      - Filesystem
+                      type: string
+                  required:
+                  - diskSize
+                  - name
+                  type: object
+                type: array
               baseImageVolumeName:
                 description: BaseImageVolumeName used as the base volume for the VM
                 type: string

@@ -97,23 +97,6 @@ spec:
                           type: string
                         metadata:
                           description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-                          properties:
-                            annotations:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            finalizers:
-                              items:
-                                type: string
-                              type: array
-                            labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            name:
-                              type: string
-                            namespace:
-                              type: string
                           type: object
                       type: object
                     type: array
@@ -203,23 +186,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackBaremetalSetSpec defines the desired
@@ -256,6 +222,10 @@ spec:
                                   description: Name of secret holding the stack-admin
                                     ssh keys
                                   type: string
+                                dnsSearchDomains:
+                                  items:
+                                    type: string
+                                  type: array
                                 hardwareReqs:
                                   description: Hardware requests for sub-selection
                                     of BaremetalHosts with certain hardware specs
@@ -553,23 +523,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackClientSpec defines the desired
@@ -585,18 +538,6 @@ spec:
                                 deploymentSSHSecret:
                                   description: name of secret holding the stack-admin
                                     ssh keys
-                                  type: string
-                                dnsSearchDomains:
-                                  items:
-                                    type: string
-                                  type: array
-                                dnsServers:
-                                  description: Upstream DNS servers
-                                  items:
-                                    type: string
-                                  type: array
-                                domainName:
-                                  description: Domain name used to build fqdn
                                   type: string
                                 idmSecret:
                                   description: Idm secret used to register openstack
@@ -795,23 +736,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackControlPlaneSpec defines the desired
@@ -831,18 +755,6 @@ spec:
                                 caConfigMap:
                                   description: Name of the config map containing custom
                                     CA certificates to trust
-                                  type: string
-                                dnsSearchDomains:
-                                  items:
-                                    type: string
-                                  type: array
-                                dnsServers:
-                                  description: Upstream DNS servers
-                                  items:
-                                    type: string
-                                  type: array
-                                domainName:
-                                  description: Domain name used to build fqdn
                                   type: string
                                 enableFencing:
                                   default: false
@@ -892,10 +804,82 @@ spec:
                                     description: OpenStackVirtualMachineRoleSpec -
                                       defines the desired state of VMs
                                     properties:
+                                      additionalDisks:
+                                        description: AdditionalDisks additional disks
+                                          to add to the VMI
+                                        items:
+                                          description: OpenStackVMSetAdditionalDisk
+                                            defines additional disk properties
+                                          properties:
+                                            dedicatedIOThread:
+                                              default: false
+                                              description: DedicatedIOThread - Disks
+                                                with dedicatedIOThread set to true
+                                                will be allocated an exclusive thread.
+                                                This is generally useful if a specific
+                                                Disk is expected to have heavy I/O
+                                                traffic, e.g. a database spindle.
+                                              type: boolean
+                                            diskSize:
+                                              description: Disc size in GB
+                                              format: int32
+                                              type: integer
+                                            name:
+                                              description: Name of the additional
+                                                disk, e.g. used to do the PVC request
+                                              type: string
+                                            storageAccessMode:
+                                              default: ReadWriteMany
+                                              description: StorageAccessMode - Virtual
+                                                machines must have a persistent volume
+                                                claim (PVC) with a shared ReadWriteMany
+                                                (RWX) access mode to be live migrated.
+                                              enum:
+                                              - ReadWriteOnce
+                                              - ReadWriteMany
+                                              type: string
+                                            storageClass:
+                                              description: StorageClass to be used
+                                                for the disk
+                                              type: string
+                                            storageVolumeMode:
+                                              default: Filesystem
+                                              description: 'StorageVolumeMode - When
+                                                using OpenShift Virtualization with
+                                                OpenShift Container Platform Container
+                                                Storage, specify RBD block mode persistent
+                                                volume claims (PVCs) when creating
+                                                virtual machine disks. With virtual
+                                                machine disks, RBD block mode volumes
+                                                are more efficient and provide better
+                                                performance than Ceph FS or RBD filesystem-mode
+                                                PVCs. To specify RBD block mode PVCs,
+                                                use the ''ocs-storagecluster-ceph-rbd''
+                                                storage class and VolumeMode: Block.'
+                                              enum:
+                                              - Block
+                                              - Filesystem
+                                              type: string
+                                          required:
+                                          - diskSize
+                                          - name
+                                          type: object
+                                        type: array
                                       baseImageVolumeName:
                                         description: BaseImageVolumeName used as the
                                           base volume for the VM
                                         type: string
+                                      blockMultiQueue:
+                                        default: false
+                                        description: Block Multi-Queue is a framework
+                                          for the Linux block layer that maps Device
+                                          I/O queries to multiple queues. This splits
+                                          I/O processing up across multiple threads,
+                                          and therefor multiple CPUs. libvirt recommends
+                                          that the number of queues used should match
+                                          the number of CPUs allocated for optimal
+                                          performance.
+                                        type: boolean
                                       cores:
                                         description: number of Cores assigned to the
                                           VM
@@ -906,10 +890,38 @@ spec:
                                         description: Interface to use for ctlplane
                                           network
                                         type: string
+                                      dedicatedIOThread:
+                                        default: false
+                                        description: DedicatedIOThread for the root
+                                          disk - Disks with dedicatedIOThread set
+                                          to true will be allocated an exclusive thread.
+                                          This is generally useful if a specific Disk
+                                          is expected to have heavy I/O traffic, e.g.
+                                          a database spindle.
+                                        type: boolean
                                       diskSize:
                                         description: root Disc size in GB
                                         format: int32
                                         type: integer
+                                      ioThreadsPolicy:
+                                        description: IOThreadsPolicy - IO thread policy
+                                          for the domain. Currently valid policies
+                                          are shared and auto. If IOThreadsPolicy
+                                          is default, use of IOThreads will be disabled.
+                                          However, if any disk requests a dedicated
+                                          IOThread, ioThreadsPolicy will be enabled
+                                          and default to shared. When ioThreadsPolicy
+                                          is set to auto IOThreads will also be "isolated"
+                                          from the vCPUs and placed on the same physical
+                                          CPU as the QEMU emulator thread. An ioThreadsPolicy
+                                          of shared indicates that KubeVirt should
+                                          use one thread that will be shared by all
+                                          disk devices.
+                                        enum:
+                                        - default
+                                        - auto
+                                        - shared
+                                        type: string
                                       isTripleoRole:
                                         default: true
                                         description: in case of external functionality,
@@ -1176,23 +1188,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackMACAddressSpec defines the desired
@@ -1418,23 +1413,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackNetAttachmentSpec defines the
@@ -1654,23 +1632,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackNetConfigSpec defines the desired
@@ -2165,23 +2126,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackNetSpec defines the desired state
@@ -2449,23 +2393,6 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackProvisionServerSpec defines the
@@ -2644,32 +2571,84 @@ spec:
                                 to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                               type: string
                             metadata:
-                              properties:
-                                annotations:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                finalizers:
-                                  items:
-                                    type: string
-                                  type: array
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
                               type: object
                             spec:
                               description: OpenStackVMSetSpec defines the desired
                                 state of an OpenStackVMSet
                               properties:
+                                additionalDisks:
+                                  description: AdditionalDisks additional disks to
+                                    add to the VMI
+                                  items:
+                                    description: OpenStackVMSetAdditionalDisk defines
+                                      additional disk properties
+                                    properties:
+                                      dedicatedIOThread:
+                                        default: false
+                                        description: DedicatedIOThread - Disks with
+                                          dedicatedIOThread set to true will be allocated
+                                          an exclusive thread. This is generally useful
+                                          if a specific Disk is expected to have heavy
+                                          I/O traffic, e.g. a database spindle.
+                                        type: boolean
+                                      diskSize:
+                                        description: Disc size in GB
+                                        format: int32
+                                        type: integer
+                                      name:
+                                        description: Name of the additional disk,
+                                          e.g. used to do the PVC request
+                                        type: string
+                                      storageAccessMode:
+                                        default: ReadWriteMany
+                                        description: StorageAccessMode - Virtual machines
+                                          must have a persistent volume claim (PVC)
+                                          with a shared ReadWriteMany (RWX) access
+                                          mode to be live migrated.
+                                        enum:
+                                        - ReadWriteOnce
+                                        - ReadWriteMany
+                                        type: string
+                                      storageClass:
+                                        description: StorageClass to be used for the
+                                          disk
+                                        type: string
+                                      storageVolumeMode:
+                                        default: Filesystem
+                                        description: 'StorageVolumeMode - When using
+                                          OpenShift Virtualization with OpenShift
+                                          Container Platform Container Storage, specify
+                                          RBD block mode persistent volume claims
+                                          (PVCs) when creating virtual machine disks.
+                                          With virtual machine disks, RBD block mode
+                                          volumes are more efficient and provide better
+                                          performance than Ceph FS or RBD filesystem-mode
+                                          PVCs. To specify RBD block mode PVCs, use
+                                          the ''ocs-storagecluster-ceph-rbd'' storage
+                                          class and VolumeMode: Block.'
+                                        enum:
+                                        - Block
+                                        - Filesystem
+                                        type: string
+                                    required:
+                                    - diskSize
+                                    - name
+                                    type: object
+                                  type: array
                                 baseImageVolumeName:
                                   description: BaseImageVolumeName used as the base
                                     volume for the VM
                                   type: string
+                                blockMultiQueue:
+                                  default: false
+                                  description: Block Multi-Queue is a framework for
+                                    the Linux block layer that maps Device I/O queries
+                                    to multiple queues. This splits I/O processing
+                                    up across multiple threads, and therefor multiple
+                                    CPUs. libvirt recommends that the number of queues
+                                    used should match the number of CPUs allocated
+                                    for optimal performance.
+                                  type: boolean
                                 bootstrapDns:
                                   description: BootstrapDNS - initial DNS nameserver
                                     values to set on the VM when they are provisioned.
@@ -2686,6 +2665,14 @@ spec:
                                   default: enp2s0
                                   description: Interface to use for ctlplane network
                                   type: string
+                                dedicatedIOThread:
+                                  default: false
+                                  description: DedicatedIOThread - Disks with dedicatedIOThread
+                                    set to true will be allocated an exclusive thread.
+                                    This is generally useful if a specific Disk is
+                                    expected to have heavy I/O traffic, e.g. a database
+                                    spindle.
+                                  type: boolean
                                 deploymentSSHSecret:
                                   description: name of secret holding the stack-admin
                                     ssh keys
@@ -2698,8 +2685,22 @@ spec:
                                   items:
                                     type: string
                                   type: array
-                                domainName:
-                                  description: Domain name used to build fqdn
+                                ioThreadsPolicy:
+                                  description: IOThreadsPolicy - IO thread policy
+                                    for the domain. Currently valid policies are shared
+                                    and auto. If IOThreadsPolicy is default, use of
+                                    IOThreads will be disabled. However, if any disk
+                                    requests a dedicated IOThread, ioThreadsPolicy
+                                    will be enabled and default to shared. When ioThreadsPolicy
+                                    is set to auto IOThreads will also be "isolated"
+                                    from the vCPUs and placed on the same physical
+                                    CPU as the QEMU emulator thread. An ioThreadsPolicy
+                                    of shared indicates that KubeVirt should use one
+                                    thread that will be shared by all disk devices.
+                                  enum:
+                                  - default
+                                  - auto
+                                  - shared
                                   type: string
                                 isTripleoRole:
                                   description: in case of external functionality,
@@ -2982,23 +2983,6 @@ spec:
                           type: string
                         metadata:
                           description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-                          properties:
-                            annotations:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            finalizers:
-                              items:
-                                type: string
-                              type: array
-                            labels:
-                              additionalProperties:
-                                type: string
-                              type: object
-                            name:
-                              type: string
-                            namespace:
-                              type: string
                           type: object
                         stringData:
                           additionalProperties:

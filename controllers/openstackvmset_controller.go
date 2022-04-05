@@ -46,7 +46,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	// cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	//	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 // OpenStackVMSetReconciler reconciles a VMSet object
@@ -740,7 +741,6 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 ) error {
 
 	evictionStrategy := virtv1.EvictionStrategyLiveMigrate
-	fsMode := corev1.PersistentVolumeMode(instance.Spec.StorageVolumeMode)
 	trueValue := true
 	terminationGracePeriodSeconds := int64(0)
 
@@ -760,96 +760,68 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 		return err
 	}
 
-	// dvTemplateSpec for the VM
-	dvTemplateSpec := virtv1.DataVolumeTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ctl.DomainNameUniq,
-			Namespace: instance.Namespace,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			PVC: &corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.PersistentVolumeAccessMode(instance.Spec.StorageAccessMode),
-				},
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse(fmt.Sprintf("%dGi", instance.Spec.DiskSize)),
-					},
-				},
-				VolumeMode: &fsMode,
+	/*
+		//
+		// dvTemplateSpec for the VM
+		//
+		dvTemplates := vmset.MergeVMDataVolumes(
+			[]virtv1.DataVolumeTemplateSpec{},
+			vmset.DataVolumeSetterMap{
+				ctl.DomainNameUniq: vmset.DataVolume(
+					ctl.DomainNameUniq,
+					instance.Namespace,
+					instance.Spec.StorageAccessMode,
+					instance.Spec.DiskSize,
+					instance.Spec.StorageVolumeMode,
+					instance.Spec.StorageClass,
+					ctl.BaseImageName,
+				),
 			},
-			Source: &cdiv1.DataVolumeSource{
-				PVC: &cdiv1.DataVolumeSourcePVC{
-					Name:      ctl.BaseImageName,
-					Namespace: instance.Namespace,
-				},
-			},
-		},
-	}
-	// set StorageClasseName when specified in the CR
-	if instance.Spec.StorageClass != "" {
-		dvTemplateSpec.Spec.PVC.StorageClassName = &instance.Spec.StorageClass
-	}
+			instance.Namespace,
+		)
 
-	disks := []virtv1.Disk{
-		{
-			Name: "rootdisk",
-			DiskDevice: virtv1.DiskDevice{
-				Disk: &virtv1.DiskTarget{
-					Bus: "virtio",
-				},
+		disks := vmset.MergeVMDisks(
+			[]virtv1.Disk{},
+			vmset.DiskSetterMap{
+				"rootdisk": vmset.Disk(
+					"rootdisk",
+					"virtio",
+					"",
+					instance.Spec.DedicatedIOThread,
+				),
+				"cloudinitdisk": vmset.Disk(
+					"cloudinitdisk",
+					"virtio",
+					"",
+					false,
+				),
+				"fencingdisk": vmset.Disk(
+					"fencingdisk",
+					"virtio",
+					"fencingdisk",
+					false,
+				),
 			},
-		},
-		{
-			Name: "cloudinitdisk",
-			DiskDevice: virtv1.DiskDevice{
-				Disk: &virtv1.DiskTarget{
-					Bus: "virtio",
-				},
-			},
-		},
-		{
-			Name:   "fencingdisk",
-			Serial: "fencingdisk",
-			DiskDevice: virtv1.DiskDevice{
-				Disk: &virtv1.DiskTarget{
-					Bus: "virtio",
-				},
-			},
-		},
-	}
+		)
 
-	volumes := []virtv1.Volume{
-		{
-			Name: "rootdisk",
-			VolumeSource: virtv1.VolumeSource{
-				DataVolume: &virtv1.DataVolumeSource{
-					Name: ctl.DomainNameUniq,
-				},
+		volumes := vmset.MergeVMVolumes(
+			[]virtv1.Volume{},
+			vmset.VolumeSetterMap{
+				"rootdisk": vmset.VolumeSourceDataVolume(
+					ctl.DomainNameUniq,
+				),
+				"cloudinitdisk": vmset.VolumeSourceCloudInitNoCloud(
+					"cloudinitdisk",
+					secret.Name,
+					ctl.NetworkDataSecret,
+				),
+				"fencingdisk": vmset.VolumeSourceSecret(
+					"fencingdisk",
+					vmset.KubevirtFencingKubeconfigSecret,
+				),
 			},
-		},
-		{
-			Name: "cloudinitdisk",
-			VolumeSource: virtv1.VolumeSource{
-				CloudInitNoCloud: &virtv1.CloudInitNoCloudSource{
-					UserDataSecretRef: &corev1.LocalObjectReference{
-						Name: secret.Name,
-					},
-					NetworkDataSecretRef: &corev1.LocalObjectReference{
-						Name: ctl.NetworkDataSecret,
-					},
-				},
-			},
-		},
-		{
-			Name: "fencingdisk",
-			VolumeSource: virtv1.VolumeSource{
-				Secret: &virtv1.SecretVolumeSource{
-					SecretName: vmset.KubevirtFencingKubeconfigSecret,
-				},
-			},
-		},
-	}
+		)
+	*/
 
 	labels := common.GetLabels(instance, vmset.AppLabel, map[string]string{
 		common.OSPHostnameLabelSelector: ctl.Hostname,
@@ -866,7 +838,7 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 			TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 			Domain: virtv1.DomainSpec{
 				Devices: virtv1.Devices{
-					Disks: disks,
+					Disks: []virtv1.Disk{},
 					Interfaces: []virtv1.Interface{
 						{
 							Name:  "default",
@@ -883,7 +855,7 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 					Type: "",
 				},
 			},
-			Volumes: volumes,
+			Volumes: []virtv1.Volume{},
 			Networks: []virtv1.Network{
 				{
 					Name: "default",
@@ -928,7 +900,6 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 
 		vm.Labels = common.GetLabels(instance, vmset.AppLabel, map[string]string{})
 
-		vm.Spec.DataVolumeTemplates = []virtv1.DataVolumeTemplateSpec{dvTemplateSpec}
 		vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
 			Cores: instance.Spec.Cores,
 		}
@@ -995,6 +966,117 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 			)
 		}
 
+		if instance.Spec.BlockMultiQueue {
+			vm.Spec.Template.Spec.Domain.Devices.BlockMultiQueue = &trueValue
+		}
+
+		// root, cloudinit and fencing disk
+		if instance.Spec.IOThreadsPolicy != "default" {
+			ioThreadsPolicy := virtv1.IOThreadsPolicy(instance.Spec.IOThreadsPolicy)
+			vm.Spec.Template.Spec.Domain.IOThreadsPolicy = &ioThreadsPolicy
+		}
+
+		dvTemplates := vmset.MergeVMDataVolumes(
+			[]virtv1.DataVolumeTemplateSpec{},
+			vmset.DataVolumeSetterMap{
+				ctl.DomainNameUniq: vmset.DataVolume(
+					ctl.DomainNameUniq,
+					instance.Namespace,
+					instance.Spec.StorageAccessMode,
+					instance.Spec.DiskSize,
+					instance.Spec.StorageVolumeMode,
+					instance.Spec.StorageClass,
+					ctl.BaseImageName,
+				),
+			},
+			instance.Namespace,
+		)
+		vm.Spec.DataVolumeTemplates = dvTemplates
+
+		disks := vmset.MergeVMDisks(
+			[]virtv1.Disk{},
+			vmset.DiskSetterMap{
+				"rootdisk": vmset.Disk(
+					"rootdisk",
+					"virtio",
+					"",
+					instance.Spec.DedicatedIOThread,
+				),
+				"cloudinitdisk": vmset.Disk(
+					"cloudinitdisk",
+					"virtio",
+					"",
+					false,
+				),
+				"fencingdisk": vmset.Disk(
+					"fencingdisk",
+					"virtio",
+					"fencingdisk",
+					false,
+				),
+			},
+		)
+		vm.Spec.Template.Spec.Domain.Devices.Disks = disks
+
+		volumes := vmset.MergeVMVolumes(
+			[]virtv1.Volume{},
+			vmset.VolumeSetterMap{
+				"rootdisk": vmset.VolumeSourceDataVolume(
+					ctl.DomainNameUniq,
+				),
+				"cloudinitdisk": vmset.VolumeSourceCloudInitNoCloud(
+					"cloudinitdisk",
+					secret.Name,
+					ctl.NetworkDataSecret,
+				),
+				"fencingdisk": vmset.VolumeSourceSecret(
+					"fencingdisk",
+					vmset.KubevirtFencingKubeconfigSecret,
+				),
+			},
+		)
+		vm.Spec.Template.Spec.Volumes = volumes
+
+		// merge additional disks
+		for _, disk := range instance.Spec.AdditionalDisks {
+			name := fmt.Sprintf("%s-%s", ctl.DomainNameUniq, disk.Name)
+
+			vm.Spec.DataVolumeTemplates = vmset.MergeVMDataVolumes(
+				vm.Spec.DataVolumeTemplates,
+				vmset.DataVolumeSetterMap{
+					disk.Name: vmset.DataVolume(
+						name,
+						instance.Namespace,
+						disk.StorageAccessMode,
+						disk.DiskSize,
+						disk.StorageVolumeMode,
+						disk.StorageClass,
+						"",
+					),
+				},
+				instance.Namespace,
+			)
+
+			vm.Spec.Template.Spec.Domain.Devices.Disks = vmset.MergeVMDisks(
+				vm.Spec.Template.Spec.Domain.Devices.Disks,
+				vmset.DiskSetterMap{
+					disk.Name: vmset.Disk(
+						name,
+						"virtio",
+						"",
+						disk.DedicatedIOThread,
+					),
+				},
+			)
+
+			vm.Spec.Template.Spec.Volumes = vmset.MergeVMVolumes(
+				vm.Spec.Template.Spec.Volumes,
+				vmset.VolumeSetterMap{
+					disk.Name: vmset.VolumeSourceDataVolume(name),
+				},
+			)
+		}
+
 		err := controllerutil.SetControllerReference(instance, vm, r.Scheme)
 		if err != nil {
 			cond.Message = fmt.Sprintf("Error set controller reference for %s", vm.Name)
@@ -1031,6 +1113,63 @@ func (r *OpenStackVMSetReconciler) vmCreateInstance(
 
 	return nil
 }
+
+/*
+//
+// get disk DataVolumeTemplateSpec
+//
+func (r *OpenStackVMSetReconciler) getDataVolumeTemplateSpec(
+	name string,
+	namespace string,
+	pvAccessMode string,
+	diskSize uint32,
+	volumeMode string,
+	storageClass string,
+	baseImageName string,
+) virtv1.DataVolumeTemplateSpec {
+
+	volMode := corev1.PersistentVolumeMode(volumeMode)
+	dvTemplateSpec := virtv1.DataVolumeTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			PVC: &corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.PersistentVolumeAccessMode(pvAccessMode),
+				},
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse(fmt.Sprintf("%dGi", diskSize)),
+					},
+				},
+				VolumeMode: &volMode,
+			},
+			Source: &cdiv1.DataVolumeSource{
+				Blank: &cdiv1.DataVolumeBlankImage{},
+			},
+		},
+	}
+
+	// for root disk there is a volume source to clone from
+	if baseImageName != "" {
+		dvTemplateSpec.Spec.Source = &cdiv1.DataVolumeSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{
+				Name:      baseImageName,
+				Namespace: namespace,
+			},
+		}
+	}
+
+	// set StorageClasseName when specified in the CR
+	if storageClass != "" {
+		dvTemplateSpec.Spec.PVC.StorageClassName = &storageClass
+	}
+
+	return dvTemplateSpec
+}
+*/
 
 //
 // check if specified password secret exists

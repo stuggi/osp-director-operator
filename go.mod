@@ -10,20 +10,21 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-git/v5 v5.3.0
 	github.com/go-logr/logr v1.2.0
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/glog v1.0.0
 	github.com/google/uuid v1.2.0
 	github.com/gophercloud/gophercloud v0.12.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
 	github.com/metal3-io/baremetal-operator v0.0.0-20201116105209-c72e2e0d8803
 	github.com/nmstate/kubernetes-nmstate v0.33.0
-	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.15.0
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.17.0
 	github.com/openshift/cluster-api v0.0.0-20191129101638-b09907ac6668
 	github.com/openshift/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
 	github.com/tidwall/gjson v1.9.3
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
@@ -31,8 +32,8 @@ require (
 	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	kubevirt.io/api v0.51.0
 	kubevirt.io/containerized-data-importer-api v1.42.0
-	sigs.k8s.io/controller-runtime v0.10.0
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/controller-runtime v0.11.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (
