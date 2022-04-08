@@ -136,3 +136,151 @@ func validateNetworks(namespace string, networks []string) error {
 
 	return nil
 }
+
+// validateRootDisk - validate configured rootdisk
+func validateRootDisk(vmSetSpec OpenStackVMSetSpec, currentVMSetSpec OpenStackVMSetSpec) error {
+	diskName := fmt.Sprintf("%s rootdisk", vmSetSpec.RoleName)
+	//
+	// validate DiskSize don't change
+	//
+	if err := diskSizeChanged(diskName, vmSetSpec.DiskSize, currentVMSetSpec.DiskSize); err != nil {
+		return err
+	}
+
+	//
+	// validate StorageAccessMode don't change
+	//
+	if err := storageAccessModeChanged(diskName, vmSetSpec.StorageAccessMode, currentVMSetSpec.StorageAccessMode); err != nil {
+		return err
+	}
+
+	//
+	// validate StorageClass don't change
+	//
+	if err := storageClassChanged(diskName, vmSetSpec.StorageClass, currentVMSetSpec.StorageClass); err != nil {
+		return err
+	}
+
+	//
+	// validate StorageVolumeMode don't change
+	//
+	if err := storageVolumeModeChanged(diskName, vmSetSpec.StorageVolumeMode, currentVMSetSpec.StorageVolumeMode); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateDisks - validate configured disks
+func validateDisks(additionalDisks []OpenStackVMSetAdditionalDisk, currentAdditionalDisks []OpenStackVMSetAdditionalDisk) error {
+	disks := map[string]OpenStackVMSetAdditionalDisk{}
+	curDisks := map[string]OpenStackVMSetAdditionalDisk{}
+
+	if len(currentAdditionalDisks) > 0 {
+		for _, curDisk := range currentAdditionalDisks {
+			curDisks[curDisk.Name] = curDisk
+		}
+	}
+
+	for _, disk := range additionalDisks {
+		//
+		// validate Disk Name is not 'rootdisk' as this is reserved for the boot disk
+		//
+		if disk.Name == "rootdisk" {
+			return fmt.Errorf(fmt.Sprintf("disk names must not be 'rootdisk' - %v", disk))
+		}
+
+		//
+		// validate that disk name is uniq within the VM role
+		//
+		if _, ok := disks[disk.Name]; !ok {
+			disks[disk.Name] = disk
+		} else {
+			return fmt.Errorf(fmt.Sprintf("disk names must be uniq within a VM role - %v : %v", disks[disk.Name], disk))
+		}
+
+		//
+		// validations on CR update
+		//
+		if curDisk, ok := curDisks[disk.Name]; ok {
+			//
+			// validate DiskSize don't change
+			//
+			if err := diskSizeChanged(disk.Name, disk.DiskSize, curDisk.DiskSize); err != nil {
+				return err
+			}
+
+			//
+			// validate StorageAccessMode don't change
+			//
+			if err := storageAccessModeChanged(disk.Name, disk.StorageAccessMode, curDisk.StorageAccessMode); err != nil {
+				return err
+			}
+
+			//
+			// validate StorageClass don't change
+			//
+			if err := storageClassChanged(disk.Name, disk.StorageClass, curDisk.StorageClass); err != nil {
+				return err
+			}
+
+			//
+			// validate StorageVolumeMode don't change
+			//
+			if err := storageVolumeModeChanged(disk.Name, disk.StorageVolumeMode, curDisk.StorageVolumeMode); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// diskSizeChanged -
+func diskSizeChanged(diskName string, diskSize uint32, curDiskSize uint32) error {
+	//
+	// validate DiskSize don't change
+	//
+	if diskSize != curDiskSize {
+		return fmt.Errorf(fmt.Sprintf("disk size must not change %s - new %v / current %v", diskName, diskSize, curDiskSize))
+	}
+
+	return nil
+}
+
+// storageAccessModeChanged -
+func storageAccessModeChanged(diskName string, accessMode string, curAccessMode string) error {
+	//
+	// validate StorageAccessMode don't change
+	//
+	if accessMode != curAccessMode {
+		return fmt.Errorf(fmt.Sprintf("StorageAccessMode must not change %s - new %v / current %v", diskName, accessMode, curAccessMode))
+	}
+
+	return nil
+}
+
+// storageClassChanged -
+func storageClassChanged(diskName string, storageClass string, curStorageClass string) error {
+	//
+	// validate StorageClass don't change
+	//
+	if storageClass != curStorageClass {
+		return fmt.Errorf(fmt.Sprintf("StorageClass must not change %s - new %v / current %v", diskName, storageClass, curStorageClass))
+	}
+
+	return nil
+}
+
+// storageVolumeModeChanged -
+func storageVolumeModeChanged(diskName string, volumeMode string, curVolumeMode string) error {
+	//
+	// validate StorageVolumeMode don't change
+	//
+	if volumeMode != curVolumeMode {
+		return fmt.Errorf(fmt.Sprintf("StorageVolumeMode must not change %s - new %v / current %v", diskName, volumeMode, curVolumeMode))
+	}
+
+	return nil
+}
