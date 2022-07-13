@@ -1253,7 +1253,7 @@ func (r *OpenStackNetConfigReconciler) ensureIPReservation(
 	// cleanup reservations from deleted roles
 	//
 	for role := range osNet.Spec.RoleReservations {
-		if _, ok := allRoles[role]; !ok {
+		if _, ok := allRoles[role]; !ok && !*instance.Spec.PreserveReservations {
 			delete(osNet.Spec.RoleReservations, role)
 		}
 	}

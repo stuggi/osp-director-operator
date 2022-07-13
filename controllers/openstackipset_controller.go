@@ -38,6 +38,7 @@ import (
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
 	"github.com/openstack-k8s-operators/osp-director-operator/api/shared"
 	ospdirectorv1beta1 "github.com/openstack-k8s-operators/osp-director-operator/api/v1beta1"
+	ospdirectorv1beta2 "github.com/openstack-k8s-operators/osp-director-operator/api/v1beta2"
 	common "github.com/openstack-k8s-operators/osp-director-operator/pkg/common"
 	openstacknetconfig "github.com/openstack-k8s-operators/osp-director-operator/pkg/openstacknetconfig"
 )
@@ -192,6 +193,19 @@ func (r *OpenStackIPSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	//
 	for _, deletedHost := range instance.Spec.DeletedHosts {
 		delete(instance.Status.Hosts, deletedHost)
+	}
+
+	if len(instance.Status.Hosts) == 0 {
+		// if this is a migration from 1.2.x to latest the ipset is new
+		// and should get the HostStatus as a one time input from the owning obj
+		ownerHostStatus, err := GetHostStatusFromOwnerObj(ctx, r.Client, instance.ObjectMeta)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if ownerHostStatus != nil && len(ownerHostStatus) > 0 {
+			r.Log.Info(fmt.Sprintf("New IPSet with owner object HostStatus, using %+v", ownerHostStatus))
+			instance.Status.Hosts = ownerHostStatus
+		}
 	}
 
 	//
@@ -408,4 +422,123 @@ func (r *OpenStackIPSetReconciler) createNewHostnames(
 	}
 
 	return newHostnames, nil
+}
+
+// GetHostStatusFromOwnerObj returns the HostStatus object owning the current resource.
+func GetHostStatusFromOwnerObj(ctx context.Context, c client.Client, obj metav1.ObjectMeta) (map[string]ospdirectorv1beta1.HostStatus, error) {
+
+	for _, ref := range obj.OwnerReferences {
+
+		switch k := ref.Kind; k {
+		case "OpenStackBaremetalSet":
+			bmset, err := GetBMSetByName(ctx, c, obj.Namespace, ref.Name)
+			if err != nil {
+				return nil, err
+			}
+			return bmset.Status.BaremetalHosts, nil
+		/*
+			case "OpenStackVMSet":
+				vmset, err := GetVMSetByName(ctx, c, obj.Namespace, ref.Name)
+				if err != nil {
+					return nil, err
+				}
+				hostStatus := map[string]ospdirectorv1beta1.HostStatus{}
+				for hostname, details := range vmset.Status.VMHosts {
+					hostStatus[hostname] = ospdirectorv1beta1.HostStatus{
+						Hostname:             details.Hostname,
+						HostRef:              details.HostRef,
+						AnnotatedForDeletion: false,
+						IPAddresses:          details.IPAddresses,
+					}
+				}
+
+				return hostStatus, nil
+			case "OpenStackClient":
+				vmset, err := GetOSClientByName(ctx, c, obj.Namespace, ref.Name)
+				if err != nil {
+					return nil, err
+				}
+				return vmset.Status.OpenStackClientNetStatus, nil
+			case "OpenStackControlPlane":
+				vmset, err := GetOSCtlPlaneByName(ctx, c, obj.Namespace, ref.Name)
+				if err != nil {
+					return nil, err
+				}
+				hostStatus := map[string]ospdirectorv1beta1.HostStatus{}
+				for hostname, details := range vmset.Status.VIPStatus {
+					hostStatus[hostname] = ospdirectorv1beta1.HostStatus{
+						Hostname:             details.Hostname,
+						HostRef:              details.HostRef,
+						AnnotatedForDeletion: false,
+						IPAddresses:          details.IPAddresses,
+					}
+				}
+
+				return hostStatus, nil
+		*/
+		default:
+			continue
+		}
+	}
+	return nil, nil
+}
+
+// GetBMSetByName finds and return a OSBMSet object using the specified params.
+func GetBMSetByName(ctx context.Context, c client.Client, namespace, name string) (*ospdirectorv1beta1.OpenStackBaremetalSet, error) {
+	bmset := &ospdirectorv1beta1.OpenStackBaremetalSet{}
+	key := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := c.Get(ctx, key, bmset); err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("failed to get OpenStackBaremetalSet/%s - %s", name, err.Error()))
+	}
+
+	return bmset, nil
+}
+
+// GetVMSetByName finds and return a OSVMSet object using the specified params.
+func GetVMSetByName(ctx context.Context, c client.Client, namespace, name string) (*ospdirectorv1beta2.OpenStackVMSet, error) {
+	vmset := &ospdirectorv1beta2.OpenStackVMSet{}
+	key := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := c.Get(ctx, key, vmset); err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("failed to get OpenStackVMSet/%s - %s", name, err.Error()))
+	}
+
+	return vmset, nil
+}
+
+// GetOSClientByName finds and return a OSClient object using the specified params.
+func GetOSClientByName(ctx context.Context, c client.Client, namespace, name string) (*ospdirectorv1beta1.OpenStackClient, error) {
+	osclient := &ospdirectorv1beta1.OpenStackClient{}
+	key := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := c.Get(ctx, key, osclient); err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("failed to get OpenStackClient/%s - %s", name, err.Error()))
+	}
+
+	return osclient, nil
+}
+
+// GetOSCtlPlaneByName finds and return a OSCtlPlane object using the specified params.
+func GetOSCtlPlaneByName(ctx context.Context, c client.Client, namespace, name string) (*ospdirectorv1beta2.OpenStackControlPlane, error) {
+	osctlplane := &ospdirectorv1beta2.OpenStackControlPlane{}
+	key := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := c.Get(ctx, key, osctlplane); err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("failed to get OpenStackControlPlane/%s - %s", name, err.Error()))
+	}
+
+	return osctlplane, nil
 }
