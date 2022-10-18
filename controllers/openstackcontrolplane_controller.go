@@ -19,10 +19,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -435,7 +437,7 @@ func (r *OpenStackControlPlaneReconciler) createOrGetTripleoPasswords(
 	//
 	// check if "tripleo-passwords" controlplane.TripleoPasswordSecret secret already exist
 	//
-	_, secretHash, err := common.GetSecret(ctx, r, controlplane.TripleoPasswordSecret, instance.Namespace)
+	secret, secretHash, err := common.GetSecret(ctx, r, controlplane.TripleoPasswordSecret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 
@@ -477,6 +479,84 @@ func (r *OpenStackControlPlaneReconciler) createOrGetTripleoPasswords(
 			err = common.WrapErrorForObject(cond.Message, instance, err)
 
 			return err
+		}
+	} else {
+		tripleoPasswordsByte := secret.Data["tripleo-overcloud-passwords.yaml"]
+
+		tripleoPasswords := make(map[interface{}]map[string]interface{})
+		err := yaml.Unmarshal(tripleoPasswordsByte, &tripleoPasswords)
+		if err != nil {
+			// TODO uniq error for this case
+			cond.Message = fmt.Sprintf("Error extract TripleoPasswords from Secret %s", controlplane.TripleoPasswordSecret)
+			cond.Reason = shared.ControlPlaneReasonTripleoPasswordsSecretError
+			cond.Type = shared.CommonCondTypeError
+			err = common.WrapErrorForObject(cond.Message, instance, err)
+
+			return err
+		}
+
+		passwords := tripleoPasswords["parameter_defaults"]
+		currentPasswordsMap := make(map[string]interface{})
+		iter := reflect.ValueOf(passwords).MapRange()
+		for iter.Next() {
+			key := iter.Key().String()
+			value := iter.Value().Interface()
+
+			//r.Log.Info(fmt.Sprintf("Current passwords list %s: %s", key, value))
+
+			currentPasswordsMap[key] = value
+		}
+
+		r.Log.Info(fmt.Sprintf("Current tripleoPasswords list %+v", tripleoPasswords))
+		r.Log.Info(fmt.Sprintf("Current password list %+v", currentPasswordsMap))
+
+		newPasswordsMap := make(map[string]interface{})
+		for key := range common.GeneratePasswordsMap() {
+			if _, ok := currentPasswordsMap[key]; !ok {
+				r.Log.Info(fmt.Sprintf("Adding new Password %s to current list", key))
+				newPasswordsMap[key] = common.GeneratePassword(key)
+			} else {
+				r.Log.Info(fmt.Sprintf("Password %s already exist in current list", key))
+			}
+		}
+
+		if len(newPasswordsMap) > 0 {
+			r.Log.Info(fmt.Sprintf("Merging new passwords for %s into current list", reflect.ValueOf(newPasswordsMap).MapKeys()))
+
+			pwSecretLabel := common.GetLabels(instance, controlplane.AppLabel, map[string]string{})
+
+			templateParameters := make(map[string]interface{})
+			templateParameters["TripleoPasswords"] = common.MergeMaps(currentPasswordsMap, newPasswordsMap)
+
+			r.Log.Info(fmt.Sprintf("Passwords for templateParameters  %+v", templateParameters["TripleoPasswords"]))
+
+			pwSecret := []common.Template{
+				{
+					Name:               controlplane.TripleoPasswordSecret,
+					Namespace:          instance.Namespace,
+					Type:               common.TemplateTypeConfig,
+					InstanceType:       instance.Kind,
+					AdditionalTemplate: map[string]string{},
+					Labels:             pwSecretLabel,
+					ConfigOptions:      templateParameters,
+				},
+			}
+
+			err = common.EnsureSecrets(ctx, r, instance, pwSecret, envVars)
+			if err != nil {
+				cond.Message = fmt.Sprintf("Error creating TripleoPasswordsSecret %s", controlplane.TripleoPasswordSecret)
+				cond.Reason = shared.ControlPlaneReasonTripleoPasswordsSecretCreateError
+				cond.Type = shared.CommonCondTypeError
+				err = common.WrapErrorForObject(cond.Message, instance, err)
+
+				return err
+			}
+
+			secret, secretHash, err = common.GetSecret(ctx, r, controlplane.TripleoPasswordSecret, instance.Namespace)
+			if err != nil {
+				return err
+			}
+			r.Log.Info(fmt.Sprintf("BOOO Passwords from secret  %+v", string(secret.Data["tripleo-overcloud-passwords.yaml"])))
 		}
 	}
 

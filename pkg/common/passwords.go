@@ -99,47 +99,64 @@ func passwordNames() []string {
 	}
 }
 
+// GeneratePasswordsMap - generate map from passwordNames()
+func GeneratePasswordsMap() map[string]interface{} {
+
+	passwordsMap := make(map[string]interface{})
+	for _, k := range passwordNames() {
+		passwordsMap[k] = ""
+	}
+
+	return passwordsMap
+}
+
+// GeneratePassword - creates a password for a password type
+func GeneratePassword(pType string) interface{} {
+	switch pType {
+	case "CephClientKey", "CephManilaClientKey", "CephRgwKey":
+		return generateCephKey()
+	case "CephClusterFSID":
+		return uuid.New()
+	case "PacemakerRemoteAuthkey":
+		return k8s_rand.String(4096)
+	case "SnmpdReadonlyUserPassword":
+		return k8s_rand.String(24)
+	case "KeystoneFernetKeys":
+		fernetJSON, _ := generateFernetContent()
+		return fernetJSON
+	case "KeystoneCredential0", "KeystoneCredential1", "KeystoneFernetKey0", "KeystoneFernetKey1":
+		return generateFernetKey()
+	case "MigrationSshKey":
+		migrationJSON, _ := generateSSHKeypair()
+		return migrationJSON
+	case "BarbicanSimpleCryptoKek":
+		return generateFernetKey()
+	case "MysqlRootPassword":
+		return k8s_rand.String(10)
+	case "RabbitCookie":
+		return k8s_rand.String(20)
+	case "PcsdPassword":
+		return k8s_rand.String(16)
+	case "HorizonSecret":
+		return k8s_rand.String(10)
+	case "HeatAuthEncryptionKey":
+		return k8s_rand.String(32)
+	case "OctaviaServerCertsKeyPassphrase":
+		return k8s_rand.String(32)
+	case "DesignateRndcKey":
+		return generateDesignateHMAC()
+	default:
+		return k8s_rand.String(minPasswordSize)
+	}
+}
+
 // GeneratePasswords creates the passwords for a tripleo deployment
 func GeneratePasswords() map[string]interface{} {
-
-	passwords := make(map[string]interface{})
-	for _, p := range passwordNames() {
-		if p == "CephClientKey" || p == "CephManilaClientKey" || p == "CephRgwKey" {
-			passwords[p] = generateCephKey()
-		} else if p == "CephClusterFSID" {
-			passwords[p] = uuid.New()
-		} else if p == "PacemakerRemoteAuthkey" {
-			passwords[p] = k8s_rand.String(4096)
-		} else if p == "SnmpdReadonlyUserPassword" {
-			passwords[p] = k8s_rand.String(24)
-		} else if p == "KeystoneFernetKeys" {
-			fernetJSON, _ := generateFernetContent()
-			passwords[p] = fernetJSON
-		} else if p == "KeystoneCredential0" || p == "KeystoneCredential1" || p == "KeystoneFernetKey0" || p == "KeystoneFernetKey1" {
-			passwords[p] = generateFernetKey()
-		} else if p == "MigrationSshKey" {
-			migrationJSON, _ := generateSSHKeypair()
-			passwords[p] = migrationJSON
-		} else if p == "BarbicanSimpleCryptoKek" {
-			passwords[p] = generateFernetKey()
-		} else if p == "MysqlRootPassword" {
-			passwords[p] = k8s_rand.String(10)
-		} else if p == "RabbitCookie" {
-			passwords[p] = k8s_rand.String(20)
-		} else if p == "PcsdPassword" {
-			passwords[p] = k8s_rand.String(16)
-		} else if p == "HorizonSecret" {
-			passwords[p] = k8s_rand.String(10)
-		} else if p == "HeatAuthEncryptionKey" {
-			passwords[p] = k8s_rand.String(32)
-		} else if p == "OctaviaServerCertsKeyPassphrase" {
-			passwords[p] = k8s_rand.String(32)
-		} else if p == "DesignateRndcKey" {
-			passwords[p] = generateDesignateHMAC()
-		} else {
-			passwords[p] = k8s_rand.String(minPasswordSize)
-		}
+	passwords := GeneratePasswordsMap()
+	for p, _ := range passwords {
+		passwords[p] = GeneratePassword(p)
 	}
+
 	return passwords
 }
 
