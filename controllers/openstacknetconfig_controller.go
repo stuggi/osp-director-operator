@@ -170,8 +170,6 @@ func (r *OpenStackNetConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// 2. Delete all OSNets
 		//
 		for _, net := range instance.Spec.Networks {
-
-			// TODO: (mschuppert) cleanup single removed netConfig in list
 			for _, subnet := range net.Subnets {
 				if err := r.osnetCleanup(
 					ctx,
@@ -181,7 +179,6 @@ func (r *OpenStackNetConfigReconciler) Reconcile(ctx context.Context, req ctrl.R
 				); err != nil {
 					return ctrl.Result{}, err
 				}
-
 			}
 		}
 
@@ -456,6 +453,9 @@ func (r *OpenStackNetConfigReconciler) applyNetAttachmentConfig(
 			attachConfig.Spec.AttachConfiguration.NodeSriovConfigurationPolicy = nodeConfPolicy.NodeSriovConfigurationPolicy
 		}
 
+		// If the service object doesn't have our finalizer, add it.
+		controllerutil.AddFinalizer(attachConfig, openstacknetconfig.FinalizerName)
+
 		return controllerutil.SetControllerReference(instance, attachConfig, r.Scheme)
 	}
 
@@ -544,13 +544,27 @@ func (r *OpenStackNetConfigReconciler) attachCleanup(
 	cond.Message = fmt.Sprintf("OpenStackNetAttachment %s delete started", attachConfig.Name)
 	cond.Type = shared.NetConfigConfiguring
 
-	if err := r.Delete(ctx, attachConfig, &client.DeleteOptions{}); err != nil {
-		if k8s_errors.IsNotFound(err) {
-			return nil
-		}
+	common.LogForObject(r, cond.Message, instance)
+
+	//
+	// get OSNetAttach object
+	//
+	err := r.Get(ctx, types.NamespacedName{Name: strings.ToLower(attachConfig.Name), Namespace: attachConfig.Namespace}, attachConfig)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		cond.Message = fmt.Sprintf("Failed to get %s %s ", attachConfig.Kind, attachConfig.Name)
+		cond.Reason = shared.CommonCondReasonOSNetAttachError
+		cond.Type = shared.CommonCondTypeError
+		err = common.WrapErrorForObject(cond.Message, attachConfig, err)
+
 		return err
 	}
-	common.LogForObject(r, cond.Message, instance)
+
+	controllerutil.RemoveFinalizer(attachConfig, openstacknetconfig.FinalizerName)
+	if err := r.Update(ctx, attachConfig); err != nil && !k8s_errors.IsNotFound(err) {
+		return common.WrapErrorForObject("Failed to remove filanizer", attachConfig, err)
+	}
+
+	common.LogForObject(r, "Finalizer removed", attachConfig)
 
 	return nil
 }
@@ -643,6 +657,9 @@ func (r *OpenStackNetConfigReconciler) applyNetConfig(
 		}
 
 		osNet.Spec.RoleReservations = reservations
+
+		// If the service object doesn't have our finalizer, add it.
+		controllerutil.AddFinalizer(osNet, openstacknetconfig.FinalizerName)
 
 		return controllerutil.SetControllerReference(instance, osNet, r.Scheme)
 	}
@@ -766,14 +783,27 @@ func (r *OpenStackNetConfigReconciler) osnetCleanup(
 	cond.Message = fmt.Sprintf("OpenStackNet %s delete started", osNet.Name)
 	cond.Type = shared.NetConfigConfiguring
 
-	if err := r.Delete(ctx, osNet, &client.DeleteOptions{}); err != nil {
-		if k8s_errors.IsNotFound(err) {
-			return nil
-		}
+	common.LogForObject(r, cond.Message, instance)
+
+	//
+	// get OSNet object
+	//
+	err := r.Get(ctx, types.NamespacedName{Name: strings.ToLower(osNet.Name), Namespace: osNet.Namespace}, osNet)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		cond.Message = fmt.Sprintf("Failed to get %s %s ", osNet.Kind, osNet.Name)
+		cond.Reason = shared.CommonCondReasonOSNetError
+		cond.Type = shared.CommonCondTypeError
+		err = common.WrapErrorForObject(cond.Message, osNet, err)
+
 		return err
 	}
 
-	common.LogForObject(r, cond.Message, instance)
+	controllerutil.RemoveFinalizer(osNet, openstacknetconfig.FinalizerName)
+	if err := r.Update(ctx, osNet); err != nil && !k8s_errors.IsNotFound(err) {
+		return common.WrapErrorForObject("Failed to remove filanizer", osNet, err)
+	}
+
+	common.LogForObject(r, "Finalizer removed", osNet)
 
 	return nil
 }
@@ -960,6 +990,9 @@ func (r *OpenStackNetConfigReconciler) createOrUpdateOpenStackMACAddress(
 		}
 
 		macAddress.Spec.RoleReservations = reservations
+
+		// If the service object doesn't have our finalizer, add it.
+		controllerutil.AddFinalizer(macAddress, openstacknetconfig.FinalizerName)
 
 		err := controllerutil.SetControllerReference(instance, macAddress, r.Scheme)
 		if err != nil {

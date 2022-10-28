@@ -82,6 +82,8 @@ const (
 	CommonCondReasonOSNetWaiting ConditionReason = "OSNetWaiting"
 	// CommonCondReasonOSNetAvailable - openstack networks available
 	CommonCondReasonOSNetAvailable ConditionReason = "OSNetAvailable"
+	// CommonCondReasonOSNetAttachError - openstack network attachment error
+	CommonCondReasonOSNetAttachError ConditionReason = "OSNetAttachError"
 	// CommonCondReasonControllerReferenceError - error set controller reference on object
 	CommonCondReasonControllerReferenceError ConditionReason = "ControllerReferenceError"
 	// CommonCondReasonOwnerRefLabeledObjectsDeleteError - error deleting object using OwnerRef label
