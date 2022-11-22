@@ -224,6 +224,10 @@ func (r *OpenStackIPSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Wait for IPs created on all configured networks
 	//
 	for hostname, hostStatus := range instance.Status.Hosts {
+
+		r.Log.Info(fmt.Sprintf("BOOO: %+v", hostStatus))
+		r.Log.Info(fmt.Sprintf("BOOO: hostname  %+v", hostname))
+
 		err = openstacknetconfig.WaitOnIPsCreated(
 			r,
 			instance,

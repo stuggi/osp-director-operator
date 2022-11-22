@@ -276,6 +276,7 @@ func (r *OpenStackClientReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		false,
 		false,
 		[]string{},
+		[]string{},
 		false,
 	)
 

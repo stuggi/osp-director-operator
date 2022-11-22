@@ -29,7 +29,14 @@ func WaitOnIPsCreated(
 	//
 	var osnetcfgHostStatus ospdirectorv1beta1.OpenStackHostStatus
 	var ok bool
+	r.GetLogger().Info(fmt.Sprintf("BOOO1: %+v", hostStatus))
+	r.GetLogger().Info(fmt.Sprintf("BOOO1: hostname %+v", hostname))
+
 	if osnetcfgHostStatus, ok = osnetcfg.Status.Hosts[hostname]; !ok {
+
+		r.GetLogger().Info(fmt.Sprintf("BOOO2: %+v", hostStatus))
+		r.GetLogger().Info(fmt.Sprintf("BOOO2: %+v", osnetcfgHostStatus))
+
 		common.LogForObject(
 			r,
 			fmt.Sprintf("%s %s waiting on node %s to be added to %s config %s",

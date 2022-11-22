@@ -64,11 +64,11 @@ func SyncIPsetStatus(
 		// do not sync all information as other controllers are
 		// the master for e.g.
 		// - BMH <-> hostname mapping
+		// - annotated for deletion BMHs
 		// - create of networkDataSecretName and userDataSecretName
 		hostStatus = instanceStatus[ipsetHostStatus.Hostname]
-		hostStatus.AnnotatedForDeletion = ipsetHostStatus.AnnotatedForDeletion
 		// TODO: (mschuppert) remove CtlplaneIP where used (osbms) and replace with hostStatus.IPAddresses[<ctlplane>]
-		hostStatus.CtlplaneIP = ipsetHostStatus.CtlplaneIP
+		//hostStatus.CtlplaneIP = ipsetHostStatus.CtlplaneIP
 		hostStatus.IPAddresses = ipsetHostStatus.IPAddresses
 		hostStatus.ProvisioningState = ipsetHostStatus.ProvisioningState
 

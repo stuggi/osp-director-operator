@@ -31,6 +31,7 @@ func EnsureIPs(
 	hostCount int,
 	vip bool,
 	serviceVIP bool,
+	deletionAnnotatedBMHs []string,
 	deletedHosts []string,
 	addToPredictableIPs bool,
 ) (map[string]ospdirectorv1beta1.HostStatus, reconcile.Result, error) {
@@ -83,6 +84,16 @@ func EnsureIPs(
 		cond.Type = shared.CommonCondTypeWaiting
 
 		return status, reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	//
+	// check if hosts got annotated for deletion
+	//
+	r.GetLogger().Info(fmt.Sprintf("GNAHH %+v", deletionAnnotatedBMHs))
+	for _, bmh := range deletionAnnotatedBMHs {
+		bmhStatus := ipSet.Status.Hosts[bmh]
+		bmhStatus.AnnotatedForDeletion = true
+		ipSet.Status.Hosts[bmh] = bmhStatus
 	}
 
 	//

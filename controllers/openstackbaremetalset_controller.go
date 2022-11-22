@@ -328,6 +328,21 @@ func (r *OpenStackBaremetalSetReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
+	deletionAnnotatedOSP := []string{}
+
+	if len(deletionAnnotatedBMHs) > 0 {
+		ospNameHostRefs := map[string]string{}
+		for ospName, status := range instance.Status.BaremetalHosts {
+			ospNameHostRefs[status.HostRef] = ospName
+		}
+
+		for _, hostRef := range deletionAnnotatedBMHs {
+			if ospName, ok := ospNameHostRefs[hostRef]; ok {
+				deletionAnnotatedOSP = append(deletionAnnotatedOSP, ospName)
+			}
+		}
+	}
+
 	//
 	// Handle BMH removal from BMSet
 	//
@@ -354,6 +369,7 @@ func (r *OpenStackBaremetalSetReconciler) Reconcile(ctx context.Context, req ctr
 		instance.Spec.Count,
 		false,
 		false,
+		deletionAnnotatedOSP,
 		deletedHosts,
 		true,
 	)

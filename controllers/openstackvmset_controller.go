@@ -407,7 +407,7 @@ func (r *OpenStackVMSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	//
 	//   check/update instance status for annotated for deletion marked VMs
 	//
-	err = r.checkVMsAnnotatedForDeletion(
+	deletionAnnotatedVMs, err := r.checkVMsAnnotatedForDeletion(
 		ctx,
 		instance,
 		cond,
@@ -442,6 +442,7 @@ func (r *OpenStackVMSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		instance.Spec.VMCount,
 		false,
 		false,
+		deletionAnnotatedVMs,
 		deletedHosts,
 		instance.Spec.IsTripleoRole,
 	)
@@ -1310,12 +1311,12 @@ func (r *OpenStackVMSetReconciler) checkVMsAnnotatedForDeletion(
 	ctx context.Context,
 	instance *ospdirectorv1beta2.OpenStackVMSet,
 	cond *shared.Condition,
-) error {
+) ([]string, error) {
 	// check for deletion marked VMs
 	currentVMHostsStatus := instance.Status.DeepCopy().VMHosts
 	deletionAnnotatedVMs, err := r.getDeletedVMOSPHostnames(ctx, instance, cond)
 	if err != nil {
-		return err
+		return deletionAnnotatedVMs, err
 	}
 
 	for hostname, vmStatus := range instance.Status.VMHosts {
@@ -1362,11 +1363,11 @@ func (r *OpenStackVMSetReconciler) checkVMsAnnotatedForDeletion(
 			cond.Type = shared.CommonCondTypeError
 			err = common.WrapErrorForObject(cond.Message, instance, err)
 
-			return err
+			return deletionAnnotatedVMs, err
 		}
 	}
-	return nil
 
+	return deletionAnnotatedVMs, nil
 }
 
 func (r *OpenStackVMSetReconciler) getDeletedVMOSPHostnames(

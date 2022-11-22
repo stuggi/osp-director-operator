@@ -963,6 +963,7 @@ func (r *OpenStackControlPlaneReconciler) ensureVIPs(
 		true,
 		false,
 		[]string{},
+		[]string{},
 		true,
 	)
 
@@ -990,6 +991,7 @@ func (r *OpenStackControlPlaneReconciler) ensureVIPs(
 				1,
 				false,
 				true,
+				[]string{},
 				[]string{},
 				true,
 			)
