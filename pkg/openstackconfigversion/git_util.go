@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -140,6 +141,37 @@ func SyncGit(
 		log.Info(fmt.Sprintf("generate publickeys failed: %s\n", err.Error()))
 		return nil, err
 	}
+
+	sshDir := fmt.Sprintf("%s/.ssh", os.Getenv("HOME"))
+	log.Info(fmt.Sprintf("BOOOO $HOME = %s ", sshDir))
+	err = os.MkdirAll(sshDir, 0700)
+	if err != nil && !os.IsExist(err) {
+		log.Info(fmt.Sprintf("create .ssh dir failed: %s\n", err.Error()))
+		return nil, err
+	}
+
+	sshConfigContent := []byte("Host *\n    StrictHostKeyChecking no\n")
+	err = os.WriteFile(sshDir+"/config", sshConfigContent, 0600)
+	if err != nil {
+		log.Info(fmt.Sprintf("create .ssh dir failed: %s\n", err.Error()))
+		return nil, err
+	}
+
+	/*
+		// Create the Signer for this private key.
+		signer, err := crypto_ssh.ParsePrivateKey(pkey)
+		if err != nil {
+			log.Info(fmt.Sprintf("parse private key failed: %s\n", err.Error()))
+			return nil, err
+		}
+
+		sshconfig := &crypto_ssh.ClientConfig{
+			Auth: []crypto_ssh.AuthMethod{
+				crypto_ssh.PublicKeys(signer),
+			},
+			HostKeyCallback: crypto_ssh.InsecureIgnoreHostKey(),
+		}
+	*/
 
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:  string(foundSecret.Data["git_url"]),
