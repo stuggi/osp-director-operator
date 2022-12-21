@@ -19,7 +19,11 @@ package openstackconfigversion
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"net"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
@@ -32,6 +36,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+
+	crypto_ssh "golang.org/x/crypto/ssh"
 
 	"github.com/go-logr/logr"
 	ospdirectorv1beta1 "github.com/openstack-k8s-operators/osp-director-operator/api/v1beta1"
@@ -107,6 +113,24 @@ func filterPatches(filePatches []diff.FilePatch) []diff.FilePatch {
 	return retPatches
 }
 
+// CreateKnownHosts func
+func CreateKnownHosts(dialAddr string, addr net.Addr, key crypto_ssh.PublicKey) error {
+	sshDir := fmt.Sprintf("%s/.ssh", os.Getenv("HOME"))
+	err := os.MkdirAll(sshDir, 0700)
+	if err != nil && !os.IsExist(err) {
+		return fmt.Errorf("create .ssh dir failed: %w", err)
+	}
+
+	knownHostsEntry := fmt.Sprintf("%s %s %s\n", strings.Split(dialAddr, ":")[0], key.Type(), base64.StdEncoding.EncodeToString(key.Marshal()))
+
+	err = os.WriteFile(sshDir+"/known_hosts", []byte(knownHostsEntry), 0600)
+	if err != nil {
+		return fmt.Errorf("writing known_hosts failed: %w", err)
+	}
+
+	return nil
+}
+
 // SyncGit func
 func SyncGit(
 	ctx context.Context,
@@ -122,8 +146,7 @@ func SyncGit(
 	err := client.Get(ctx, types.NamespacedName{Name: inst.Spec.GitSecret, Namespace: inst.Namespace}, foundSecret)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
-			log.Error(err, "GitRepo secret was not found.")
-			return nil, err
+			return nil, fmt.Errorf("GitRepo secret was not found.: %w", err)
 		}
 		return nil, err
 	}
@@ -131,24 +154,44 @@ func SyncGit(
 	log.Info("GitRepo foundSecret")
 	pkey := foundSecret.Data["git_ssh_identity"]
 	if err != nil {
-		log.Info(fmt.Sprintf("parse private key failed: %s\n", err.Error()))
-		return nil, err
+		return nil, fmt.Errorf("parse private key failed: %w", err)
 	}
 
 	publicKeys, err := ssh.NewPublicKeys("git", pkey, "")
 	if err != nil {
-		log.Info(fmt.Sprintf("generate publickeys failed: %s\n", err.Error()))
-		return nil, err
+		return nil, fmt.Errorf("generate publickeys failed: %w", err)
 	}
+
+	repoURL, err := url.Parse(string(foundSecret.Data["git_url"]))
+	if err != nil {
+		return nil, fmt.Errorf("parse git_url failed: %w", err)
+	}
+
+	repoHost := repoURL.Hostname()
+	repoPort := "22"
+	if repoURL.Port() != "" {
+		repoPort = repoURL.Port()
+	}
+	repoAddr := fmt.Sprintf("%s:%s", repoHost, repoPort)
+
+	sshConfig := &crypto_ssh.ClientConfig{
+		HostKeyCallback: CreateKnownHosts,
+	}
+
+	sshClient, err := crypto_ssh.Dial("tcp", repoAddr, sshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("connect to git_url failed: %v", err)
+	}
+	defer sshClient.Close()
 
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:  string(foundSecret.Data["git_url"]),
 		Auth: publicKeys,
 	})
+
 	// Failed to create Git repo: URL field is required
 	if err != nil {
-		log.Info(fmt.Sprintf("Failed to create Git repo: %s\n", err.Error()))
-		return nil, err
+		return nil, fmt.Errorf("Failed to create Git repo: %w", err)
 	}
 
 	// Create the remote with repository URL
@@ -161,8 +204,7 @@ func SyncGit(
 		Auth: publicKeys,
 	})
 	if err != nil {
-		log.Info(fmt.Sprintf("Failed to list remote: %s\n", err.Error()))
-		return nil, err
+		return nil, fmt.Errorf("Failed to list remote: %w", err)
 	}
 
 	m1 := regexp.MustCompile(`/`)
@@ -173,8 +215,7 @@ func SyncGit(
 			}
 			commit, err := repo.CommitObject(ref.Hash())
 			if err != nil {
-				log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))
-				return nil, err
+				return nil, fmt.Errorf("Failed to get commit object: %w", err)
 			}
 
 			latest, err := repo.Tag("latest")
