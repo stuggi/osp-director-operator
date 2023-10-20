@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -27,11 +28,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"go.uber.org/zap/zapcore"
 
@@ -40,9 +44,8 @@ import (
 	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	sriovnetworkv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	metal3v1alpha1 "github.com/metal3-io/baremetal-operator/apis/metal3.io/v1alpha1"
-	machinev1beta1 "github.com/openshift/cluster-api/pkg/apis/machine/v1beta1"
-	sriovnetworkv1 "github.com/openshift/sriov-network-operator/api/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	storageversionmigrations "sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1"
@@ -83,7 +86,6 @@ func init() {
 	utilruntime.Must(networkv1.AddToScheme(scheme))
 	//utilruntime.Must(cdiv1.AddToScheme(scheme))
 	utilruntime.Must(metal3v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(machinev1beta1.AddToScheme(scheme))
 	utilruntime.Must(sriovnetworkv1.AddToScheme(scheme))
 	utilruntime.Must(storageversionmigrations.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
@@ -115,22 +117,56 @@ func main() {
 
 	}
 
+	var enableHTTP2 bool
+	flag.BoolVar(&enableHTTP2, "enable-http2", enableHTTP2, "If HTTP/2 should be enabled for the metrics and webhook servers.")
+
+	disableHTTP2 := func(c *tls.Config) {
+		if enableHTTP2 {
+			return
+		}
+		c.NextProtos = []string{"http/1.1"}
+		setupLog.Info("HTTP2 disabled for webhooks")
+	}
+
+	webhookServerOptions := webhook.Options{
+		TLSOpts: []func(config *tls.Config){disableHTTP2},
+	}
+
+	if strings.ToLower(os.Getenv("ENABLE_WEBHOOKS")) != "false" {
+		enableWebhooks = true
+
+		webhookServerOptions.CertDir = WebhookCertDir
+		webhookServerOptions.CertName = WebhookCertName
+		webhookServerOptions.KeyName = WebhookKeyName
+		webhookServerOptions.Port = WebhookPort
+	}
+
+	webhookServer := webhook.NewServer(webhookServerOptions)
+
 	options := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "576d6738.openstack.org",
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: webhookServer,
 	}
 
 	// create multi namespace cache if list of namespaces
-	if strings.Contains(namespace, ",") {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+	if namespace != "" {
+		defaultNamespaces := map[string]cache.Config{}
+
+		for _, namespace := range strings.Split(namespace, ",") {
+			defaultNamespaces[namespace] = cache.Config{}
+		}
+
+		options.NewCache = func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			opts.DefaultNamespaces = defaultNamespaces
+			return cache.New(config, opts)
+		}
 		setupLog.Info(fmt.Sprintf("Namespaces added to the cache: %s", namespace))
-	} else {
-		options.Namespace = namespace
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
@@ -157,16 +193,6 @@ func main() {
 	}
 
 	checker := healthz.Ping
-	if strings.ToLower(os.Getenv("ENABLE_WEBHOOKS")) != "false" {
-		enableWebhooks = true
-
-		// We're just getting a pointer here and overriding the default values
-		srv := mgr.GetWebhookServer()
-		srv.CertDir = WebhookCertDir
-		srv.CertName = WebhookCertName
-		srv.KeyName = WebhookKeyName
-		srv.Port = WebhookPort
-	}
 
 	if err = (&controllers.OpenStackControlPlaneReconciler{
 		Client:  mgr.GetClient(),
