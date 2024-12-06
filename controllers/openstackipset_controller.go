@@ -185,6 +185,9 @@ func (r *OpenStackIPSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 			return ctrl.Result{}, err
 		}
+		r.GetLogger().Info(fmt.Sprintf("updated %s with new OSNetConfigRefLabel or OSNetNameLowerLabels: %+v", instance.Name, instance.Labels))
+	} else {
+		r.GetLogger().Info(fmt.Sprintf("no new OSNetConfigRefLabel or OSNetNameLowerLabels added: %+v", instance.Labels))
 	}
 
 	//
