@@ -240,23 +240,41 @@ func SyncGit(
 			if err != nil {
 				// Enhanced debugging for Azure DevOps issues
 				isObjectNotFound := errors.Is(err, plumbing.ErrObjectNotFound)
-				log.Info(fmt.Sprintf("DEBUG: CommitObject error - error: %v, type: %T, isErrObjectNotFound: %v, UnsupportedCapabilities: %v, azureDevOpsFixApplied: %v",
-					err, err, isObjectNotFound, transport.UnsupportedCapabilities, azureDevOpsFixApplied))
+				// Fallback: also check error message string for "object not found"
+				// Some git servers may return errors that aren't wrapped as plumbing.ErrObjectNotFound
+				errMsg := strings.ToLower(err.Error())
+				isObjectNotFoundByMessage := strings.Contains(errMsg, "object not found")
+
+				log.Info(fmt.Sprintf("DEBUG: CommitObject error - error: %v, type: %T, isErrObjectNotFound: %v, isErrObjectNotFoundByMessage: %v, UnsupportedCapabilities: %v, azureDevOpsFixApplied: %v",
+					err, err, isObjectNotFound, isObjectNotFoundByMessage, transport.UnsupportedCapabilities, azureDevOpsFixApplied))
 			}
 
-			if err != nil && errors.Is(err, plumbing.ErrObjectNotFound) && !azureDevOpsFixApplied {
-				log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))
-				log.Info("Retrying entire git operation with only ThinPack in unsupported capabilities (required for Azure DevOps compatibility)")
-				// Set the global transport capabilities for Azure DevOps compatibility
-				// IMPORTANT: transport.UnsupportedCapabilities is a GLOBAL variable in go-git
-				// This setting persists for the entire process and affects the recursive call below
-				transport.UnsupportedCapabilities = []capability.Capability{
-					capability.ThinPack,
+			if err != nil && !azureDevOpsFixApplied {
+				// Detect "object not found" errors using two methods:
+				// 1. Type-based: errors.Is(err, plumbing.ErrObjectNotFound) - most reliable
+				// 2. String-based: Check error message for "object not found" - fallback for non-standard error wrapping
+				isObjectNotFound := errors.Is(err, plumbing.ErrObjectNotFound)
+				isObjectNotFoundByMessage := strings.Contains(strings.ToLower(err.Error()), "object not found")
+
+				if isObjectNotFound || isObjectNotFoundByMessage {
+					log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))
+					if isObjectNotFound {
+						log.Info("DEBUG: Object not found detected via errors.Is() type matching")
+					} else {
+						log.Info("DEBUG: Object not found detected via string matching (Azure DevOps non-standard error)")
+					}
+					log.Info("Retrying entire git operation with only ThinPack in unsupported capabilities (required for Azure DevOps compatibility)")
+					// Set the global transport capabilities for Azure DevOps compatibility
+					// IMPORTANT: transport.UnsupportedCapabilities is a GLOBAL variable in go-git
+					// This setting persists for the entire process and affects the recursive call below
+					transport.UnsupportedCapabilities = []capability.Capability{
+						capability.ThinPack,
+					}
+					log.Info("DEBUG: About to recursively call SyncGit with ThinPack capability set")
+					// Recursively retry the entire SyncGit operation
+					// The Clone operation in the recursive call will use the updated global capabilities
+					return SyncGit(ctx, inst, client, log)
 				}
-				log.Info("DEBUG: About to recursively call SyncGit with ThinPack capability set")
-				// Recursively retry the entire SyncGit operation
-				// The Clone operation in the recursive call will use the updated global capabilities
-				return SyncGit(ctx, inst, client, log)
 			}
 			if err != nil {
 				log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))

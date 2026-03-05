@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -90,22 +91,34 @@ func main() {
 		log.Printf("Testing branch: %s", ref.Name())
 
 		_, err := repo.CommitObject(ref.Hash())
-		if err != nil && errors.Is(err, plumbing.ErrObjectNotFound) {
+		if err != nil {
 			// Check if we've already applied the fix
 			azureDevOpsFixApplied := len(transport.UnsupportedCapabilities) == 1 &&
 				transport.UnsupportedCapabilities[0] == capability.ThinPack
 
-			if !azureDevOpsFixApplied {
-				log.Println("✗ CommitObject failed with ErrObjectNotFound")
+			// Detect "object not found" using two methods:
+			// 1. Type-based: errors.Is(err, plumbing.ErrObjectNotFound) - most reliable
+			// 2. String-based: Check error message for "object not found" - fallback for non-standard error wrapping
+			isObjectNotFound := errors.Is(err, plumbing.ErrObjectNotFound)
+			isObjectNotFoundByMessage := strings.Contains(strings.ToLower(err.Error()), "object not found")
+
+			if (isObjectNotFound || isObjectNotFoundByMessage) && !azureDevOpsFixApplied {
+				log.Println("✗ CommitObject failed with object not found error")
+				if isObjectNotFound {
+					log.Println("  Detected via errors.Is() type matching")
+				} else {
+					log.Println("  Detected via string matching (Azure DevOps non-standard error)")
+				}
+				log.Printf("  Error: %v (type: %T)", err, err)
 				log.Println("  Applying Azure DevOps fix: setting UnsupportedCapabilities = [ThinPack]")
 				transport.UnsupportedCapabilities = []capability.Capability{
 					capability.ThinPack,
 				}
 				needsRetry = true
 				break
+			} else if err != nil {
+				log.Fatalf("✗ Unexpected error: %v (type: %T)", err, err)
 			}
-		} else if err != nil {
-			log.Fatalf("✗ Unexpected error: %v", err)
 		}
 
 		log.Printf("✓ CommitObject succeeded")
