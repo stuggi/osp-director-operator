@@ -127,7 +127,9 @@ func SyncGit(
 	// Log the current state of transport capabilities for debugging
 	// This helps verify transport capabilities across recursive calls
 	if len(transport.UnsupportedCapabilities) > 0 {
-		log.Info(fmt.Sprintf("Starting SyncGit with UnsupportedCapabilities: %v", transport.UnsupportedCapabilities))
+		log.Info(fmt.Sprintf("DEBUG: Starting SyncGit with UnsupportedCapabilities set to: %v", transport.UnsupportedCapabilities))
+	} else {
+		log.Info("DEBUG: Starting SyncGit with default capabilities (no UnsupportedCapabilities set)")
 	}
 
 	// Check if this Secret already exists
@@ -159,6 +161,7 @@ func SyncGit(
 	}
 
 	// Attempt Clone with current transport capabilities
+	log.Info(fmt.Sprintf("DEBUG: Attempting git Clone with UnsupportedCapabilities: %v", transport.UnsupportedCapabilities))
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:  gitURL,
 		Auth: publicKeys,
@@ -179,6 +182,11 @@ func SyncGit(
 			URL:  gitURL,
 			Auth: publicKeys,
 		})
+		if err == nil {
+			log.Info("DEBUG: Clone retry with ThinPack succeeded")
+		}
+	} else if err == nil {
+		log.Info("DEBUG: Clone succeeded on first attempt")
 	}
 	// Failed to create Git repo: URL field is required
 	if err != nil {
@@ -199,14 +207,26 @@ func SyncGit(
 		log.Info(fmt.Sprintf("Failed to list remote: %s\n", err.Error()))
 		return nil, err
 	}
+	// Defensive check - refs should not be nil here but protect against it
+	if refs == nil {
+		log.Info("DEBUG: List operation returned nil refs (unexpected)")
+	}
+	log.Info(fmt.Sprintf("DEBUG: List operation succeeded, found %d refs", len(refs)))
 
 	m1 := regexp.MustCompile(`/`)
 	for _, ref := range refs {
+		// Defensive nil check - should never happen but prevents potential panic
+		if ref == nil {
+			log.Info("DEBUG: Encountered nil ref in refs list, skipping")
+			continue
+		}
 		if ref.Name().IsBranch() {
 			// Skip default branches (master/main) and HEAD
 			if ref.Name() == "refs/heads/master" || ref.Name() == "refs/heads/main" || ref.Name() == "HEAD" {
+				log.Info(fmt.Sprintf("DEBUG: Skipping default branch: %s", ref.Name()))
 				continue
 			}
+			log.Info(fmt.Sprintf("DEBUG: Processing branch: %s (hash: %s)", ref.Name(), ref.Hash()))
 			commit, err := repo.CommitObject(ref.Hash())
 			// Fallback for Azure DevOps: If Clone succeeded but CommitObject fails with "object not found",
 			// it means the Clone transferred incomplete objects. This can happen when Azure DevOps accepts
@@ -217,6 +237,13 @@ func SyncGit(
 			azureDevOpsFixApplied := len(transport.UnsupportedCapabilities) == 1 &&
 				transport.UnsupportedCapabilities[0] == capability.ThinPack
 
+			if err != nil {
+				// Enhanced debugging for Azure DevOps issues
+				isObjectNotFound := errors.Is(err, plumbing.ErrObjectNotFound)
+				log.Info(fmt.Sprintf("DEBUG: CommitObject error - error: %v, type: %T, isErrObjectNotFound: %v, UnsupportedCapabilities: %v, azureDevOpsFixApplied: %v",
+					err, err, isObjectNotFound, transport.UnsupportedCapabilities, azureDevOpsFixApplied))
+			}
+
 			if err != nil && errors.Is(err, plumbing.ErrObjectNotFound) && !azureDevOpsFixApplied {
 				log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))
 				log.Info("Retrying entire git operation with only ThinPack in unsupported capabilities (required for Azure DevOps compatibility)")
@@ -226,6 +253,7 @@ func SyncGit(
 				transport.UnsupportedCapabilities = []capability.Capability{
 					capability.ThinPack,
 				}
+				log.Info("DEBUG: About to recursively call SyncGit with ThinPack capability set")
 				// Recursively retry the entire SyncGit operation
 				// The Clone operation in the recursive call will use the updated global capabilities
 				return SyncGit(ctx, inst, client, log)
@@ -234,6 +262,7 @@ func SyncGit(
 				log.Info(fmt.Sprintf("Failed to get commit object: %s\n", err.Error()))
 				return nil, err
 			}
+			log.Info(fmt.Sprintf("DEBUG: CommitObject succeeded for branch: %s", ref.Name()))
 
 			latest, err := repo.Tag("latest")
 			if err != nil {
@@ -281,6 +310,7 @@ func SyncGit(
 
 	}
 
+	log.Info(fmt.Sprintf("DEBUG: SyncGit completed successfully with %d configVersions", len(configVersions)))
 	return configVersions, nil
 }
 
